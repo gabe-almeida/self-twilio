@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Twilio Dialer - Getting Started</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      color: #333;
+      line-height: 1.6;
+    }
+    
+    h1 {
+      color: #1976d2;
+      margin-bottom: 20px;
+    }
+    
+    h2 {
+      color: #1976d2;
+      margin-top: 30px;
+      margin-bottom: 15px;
+    }
+    
+    .card {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    pre {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    
+    code {
+      font-family: monospace;
+      background-color: #f5f5f5;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+    
+    ul {
+      margin-bottom: 15px;
+    }
+    
+    li {
+      margin-bottom: 10px;
+    }
+    
+    .note {
+      background-color: #e8f4fd;
+      padding: 15px;
+      border-left: 4px solid #1976d2;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Welcome to Twilio Dialer!</h1>
+  
+  <div class="card">
+    <h2>Getting Started</h2>
+    <p>
+      Thank you for installing the Twilio Dialer Chrome extension. This extension allows you to make and receive calls directly from your browser using Twilio's Voice API.
+    </p>
+  </div>
+  
+  <h2>Setup Instructions</h2>
+  
+  <div class="card">
+    <h3>1. Server Configuration</h3>
+    <p>
+      The extension requires a backend server for Twilio authentication. The server is already running at <code>http://localhost:3000</code>.
+    </p>
+    <p>
+      If you need to customize the server configuration, you can edit the <code>.env</code> file in the server directory:
+    </p>
+    <pre>
+# Twilio Credentials
+TWILIO_ACCOUNT_SID=AC1ca93006ce71b64875e83739904abd75
+TWILIO_AUTH_TOKEN=d3a025d142f7bf2dd173cb85c6c4e3b8
+TWILIO_API_KEY=your_twilio_api_key
+TWILIO_API_SECRET=your_twilio_api_secret
+
+# TwiML App SID (optional)
+TWILIO_TWIML_APP_SID=your_twiml_app_sid
+
+# Server configuration
+PORT=3000
+SERVER_BASE_URL=http://localhost:3000
+    </pre>
+  </div>
+  
+  <div class="card">
+    <h3>2. Using the Extension</h3>
+    <ul>
+      <li><strong>Make Calls:</strong> Click the extension icon, enter a phone number, and click the "Call" button.</li>
+      <li><strong>Receive Calls:</strong> When someone calls your Twilio number, you'll receive a notification and can answer from the extension popup.</li>
+      <li><strong>Caller ID:</strong> By default, calls will use the number +1 978 878 5223. You can add more caller IDs in the server configuration.</li>
+    </ul>
+  </div>
+  
+  <div class="note">
+    <strong>Note:</strong> For incoming calls to work, you need to configure your Twilio phone number to point to your server's webhook URL: <code>http://your-server-url/voice</code>
+  </div>
+  
+  <div class="card">
+    <h3>3. Advanced Configuration</h3>
+    <p>
+      For production use, you should:
+    </p>
+    <ul>
+      <li>Host the server on a publicly accessible URL</li>
+      <li>Set up a TwiML Application in your Twilio console</li>
+      <li>Configure your Twilio phone numbers to use the TwiML Application</li>
+      <li>Update the server's environment variables accordingly</li>
+    </ul>
+  </div>
+  
+  <div class="card">
+    <h3>Need Help?</h3>
+    <p>
+      If you encounter any issues or have questions, please refer to the documentation or contact support.
+    </p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,267 @@
+:root {
+  --primary-color: #3498db;
+  --primary-hover: #2980b9;
+  --danger-color: #e74c3c;
+  --danger-hover: #c0392b;
+  --success-color: #2ecc71;
+  --success-hover: #27ae60;
+  --light-gray: #f0f0f0;
+  --medium-gray: #e0e0e0;
+  --dark-gray: #757575;
+  --text-color: #212121;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  width: 320px; /* Keep the width for the extension popup */
+  background-color: white;
+  color: var(--text-color);
+}
+
+.dialer-container {
+  padding: 15px; /* Keep padding consistent */
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.header h1 {
+  font-size: 20px; /* Keep consistent font size */
+  color: var(--primary-color);
+}
+
+.caller-id-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.caller-id-section label {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.caller-id-section select {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid var(--medium-gray);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.phone-display {
+  position: relative;
+  display: flex;
+  margin-bottom: 10px;
+}
+
+#phone-number {
+  flex: 1;
+  padding: 12px;
+  font-size: 18px;
+  border: 1px solid var(--medium-gray);
+  border-radius: 4px;
+}
+
+#clear-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: var(--dark-gray);
+  cursor: pointer;
+}
+
+.status-display {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  padding: 5px;
+  background-color: var(--light-gray);
+  border-radius: 4px;
+}
+
+#call-status {
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+#call-duration {
+  font-family: monospace;
+}
+
+.dialer-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* Keep 3 columns */
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.dial-btn {
+  background-color: var(--light-gray);
+  border: 1px solid var(--medium-gray);
+  border-radius: 4px; /* Keep consistent border-radius */
+  padding: 15px;
+  font-size: 18px;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  height: 55px; /* Added height for consistency */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dial-btn:hover {
+  background-color: var(--medium-gray);
+}
+
+.dial-btn:active {
+  transform: scale(0.95);
+}
+
+.sub-text {
+    font-size: 10px;
+    font-weight: normal;
+    color: var(--dark-gray);
+    margin-top: -2px;
+}
+
+.call-controls {
+  display: flex;
+  gap: 10px;
+  justify-content: center; /* Center the buttons */
+}
+
+.primary-btn {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px; /* Keep consistent border-radius */
+  padding: 12px 30px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  flex: 1; /* Make buttons fill available space */
+}
+
+.primary-btn:hover {
+  background-color: var(--primary-hover);
+}
+
+.in-call-controls {
+  display: none; /* Initially hidden */
+  margin-top: 10px;
+  text-align: center;
+}
+
+.danger-btn {
+  background-color: var(--danger-color) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 4px;
+  padding: 12px 30px;
+  font-size: 16px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.danger-btn:hover {
+    background-color: var(--danger-hover) !important;
+}
+
+.debug-controls {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.debug-controls button {
+    padding: 5px;
+    font-size: 12px;
+    background-color: var(--light-gray);
+    border: 1px solid var(--medium-gray);
+    border-radius: 4px;
+    margin: 0 5px; /* Add some spacing between buttons */
+}
+
+#debug-output {
+  margin-top: 10px;
+  padding: 5px;
+  font-size: 10px;
+  background-color: var(--light-gray);
+  border: 1px solid var(--medium-gray);
+  max-height: 100px;
+  overflow-y: auto;
+  display: none; /* Initially hidden */
+  white-space: pre-wrap; /* Preserve newlines and spacing */
+}
+
+#incoming-call-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.9);
+  display: none; /* Initially hidden */
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  z-index: 100;
+}
+
+.incoming-call-info {
+  text-align: center;
+  margin-bottom: 30px;
+  color: white;
+}
+
+#incoming-caller {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+#incoming-number {
+  font-size: 18px;
+  color: #ccc;
+}
+
+.incoming-call-actions {
+  display: flex;
+  gap: 20px;
+}
+
+.incoming-call-actions button {
+  padding: 12px 25px;
+  border-radius: 30px;
+  border: none;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.success-btn {
+  background-color: var(--success-color) !important;
+  color: white !important;
+}
+
+.notice {
+    margin-top: 10px;
+    padding: 8px;
+    background-color: var(--light-gray);
+    border-left: 3px solid var(--primary-color);
+    font-size: 11px;
+}

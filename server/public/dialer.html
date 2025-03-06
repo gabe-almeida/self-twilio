@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twilio Dialer Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #3498db;
+            text-align: center;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .dial-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .dial-btn {
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            font-size: 18px;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .dial-btn:hover {
+            background-color: #e0e0e0;
+        }
+        .call-controls {
+            display: flex;
+            gap: 10px;
+        }
+        .call-btn {
+            flex: 1;
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .hang-up-btn {
+            flex: 1;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .call-btn:hover {
+            background-color: #27ae60;
+        }
+        .hang-up-btn:hover {
+            background-color: #c0392b;
+        }
+        .status {
+            text-align: center;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        .debug-container {
+            margin-top: 20px;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+        .debug-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        .debug-output {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .in-call-controls {
+            display: none;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Twilio Dialer Test</h1>
+        
+        <div class="input-group">
+            <label for="caller-id">Caller ID:</label>
+            <select id="caller-id">
+                <option value="+19788785223">+1 (978) 878-5223</option>
+            </select>
+        </div>
+        
+        <div class="input-group">
+            <label for="phone-number">Phone Number:</label>
+            <input type="tel" id="phone-number" placeholder="Enter phone number" value="+19787980276">
+        </div>
+        
+        <div class="dial-pad">
+            <div class="dial-btn" data-value="1">1</div>
+            <div class="dial-btn" data-value="2">2</div>
+            <div class="dial-btn" data-value="3">3</div>
+            <div class="dial-btn" data-value="4">4</div>
+            <div class="dial-btn" data-value="5">5</div>
+            <div class="dial-btn" data-value="6">6</div>
+            <div class="dial-btn" data-value="7">7</div>
+            <div class="dial-btn" data-value="8">8</div>
+            <div class="dial-btn" data-value="9">9</div>
+            <div class="dial-btn" data-value="*">*</div>
+            <div class="dial-btn" data-value="0">0</div>
+            <div class="dial-btn" data-value="#">#</div>
+        </div>
+        
+        <div class="call-controls">
+            <button id="call-btn" class="call-btn">Call</button>
+            <button id="hang-up-btn" class="hang-up-btn" style="display: none;">Hang Up</button>
+        </div>
+        
+        <div class="in-call-controls">
+            <button id="mute-btn">Mute</button>
+            <span id="call-duration">00:00</span>
+        </div>
+        
+        <div class="status" id="call-status">Ready</div>
+        
+        <div class="debug-container">
+            <div class="debug-title" id="debug-toggle">Show Debug Info</div>
+            <div class="debug-output" id="debug-output" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script src="https://sdk.twilio.com/js/client/releases/1.14.0/twilio.min.js"></script>
+    <script>
+        // Debug utilities
+        const DEBUG = {
+            logs: [],
+            
+            log(message, ...args) {
+                const timestamp = new Date().toISOString().split('T')[1].slice(0, -1);
+                const formattedMessage = `${timestamp} - ${message}`;
+                console.log(formattedMessage, ...args);
+                
+                // Store in our debug logs
+                this.logs.push([formattedMessage, args.length ? JSON.stringify(args) : '']);
+                
+                // Update debug output if visible
+                const debugOutput = document.getElementById('debug-output');
+                if (debugOutput && debugOutput.style.display !== 'none') {
+                    this.updateDebugOutput();
+                }
+            },
+            
+            error(message, ...args) {
+                const timestamp = new Date().toISOString().split('T')[1].slice(0, -1);
+                const formattedMessage = `ERROR ${timestamp} - ${message}`;
+                console.error(formattedMessage, ...args);
+                
+                // Store in our debug logs with ERROR prefix
+                this.logs.push([formattedMessage, args.length ? JSON.stringify(args) : '']);
+                
+                // Update debug output if visible
+                const debugOutput = document.getElementById('debug-output');
+                if (debugOutput && debugOutput.style.display !== 'none') {
+                    this.updateDebugOutput();
+                }
+            },
+            
+            updateDebugOutput() {
+                const debugOutput = document.getElementById('debug-output');
+                if (!debugOutput) return;
+                
+                debugOutput.innerHTML = this.logs
+                    .map(([msg, args]) => `<div>${msg} ${args}</div>`)
+                    .join('');
+                
+                // Scroll to bottom
+                debugOutput.scrollTop = debugOutput.scrollHeight;
+            }
+        };
+
+        // TwilioAPI - Simplified API for testing
+        class TwilioAPI {
+            constructor(serverUrl) {
+                this.serverUrl = serverUrl;
+                this.tokenTimestamp = null;
+            }
+            
+            async getToken(callerId) {
+                DEBUG.log(`Getting token with caller ID: ${callerId}`);
+                
+                try {
+                    const response = await fetch(`${this.serverUrl}/token`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ callerId })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (!data.token) {
+                        throw new Error('No token in response');
+                    }
+                    
+                    // Set token timestamp
+                    this.tokenTimestamp = Date.now();
+                    
+                    DEBUG.log(`Token received, length: ${data.token.length}`);
+                    return data;
+                } catch (error) {
+                    DEBUG.error('Error getting token:', error);
+                    throw error;
+                }
+            }
+            
+            needsTokenRefresh() {
+                // Tokens last for 1 hour, but we'll refresh after 50 minutes
+                const TOKEN_LIFETIME = 50 * 60 * 1000; // 50 minutes
+                
+                if (!this.tokenTimestamp) {
+                    return true;
+                }
+                
+                return Date.now() - this.tokenTimestamp > TOKEN_LIFETIME;
+            }
+        }
+
+        // TwilioVoiceClient - Simplified client for testing
+        class TwilioVoiceClient {
+            constructor() {
+                this.device = null;
+                this.call = null;
+                this.token = null;
+                this.isInitialized = false;
+                this.isMuted = false;
+                this.callListeners = [];
+                this.deviceListeners = [];
+            }
+            
+            async initialize(token) {
+                try {
+                    DEBUG.log('Initializing Twilio device...');
+                    
+                    if (!token) {
+                        throw new Error('No token provided');
+                    }
+                    
+                    this.token = token;
+                    
+                    // Cleanup any existing device
+                    if (this.device) {
+                        DEBUG.log('Destroying existing device');
+                        this.device.destroy();
+                    }
+                    
+                    // Create new device
+                    DEBUG.log('Creating new device with token');
+                    // Log token preview for debugging
+                    const tokenPreview = token.substring(0, 20) + '...' + token.substring(token.length - 20);
+                    DEBUG.log('Token preview:', tokenPreview);
+                    
+                    this.device = new Twilio.Device(token, {
+                        debug: true,
+                        codecPreferences: ['opus', 'pcmu'],
+                        fakeLocalDTMF: true,
+                        enableRingingState: true,
+                        // Add edge parameter for better compatibility (don't use both edge and region)
+                        edge: 'ashburn',
+                        // Add explicit audio constraints
+                        audioConstraints: {
+                            autoGainControl: true,
+                            echoCancellation: true,
+                            noiseSuppression: true
+                        }
+                    });
+                    
+                    // Set up device event listeners
+                    this.device.on('ready', () => {
+                        DEBUG.log('Device ready');
+                        this.notifyListeners('device', 'ready');
+                    });
+                    
+                    this.device.on('error', (error) => {
+                        DEBUG.error('Device error:', error);
+                        this.notifyListeners('device', 'error', error);
+                    });
+                    
+                    this.device.on('incoming', (call) => {
+                        DEBUG.log('Incoming call');
+                        this.call = call;
+                        this.setupCallListeners();
+                        this.notifyListeners('device', 'incoming', call);
+                    });
+                    
+                    this.isInitialized = true;
+                    DEBUG.log('Device initialized successfully');
+                } catch (error) {
+                    DEBUG.error('Error initializing device:', error);
+                    throw error;
+                }
+            }
+            
+            setupCallListeners() {
+                if (!this.call) return;
+                
+                this.call.on('accept', () => {
+                    DEBUG.log('Call accepted');
+                    this.notifyListeners('call', 'connect');
+                });
+                
+                this.call.on('disconnect', () => {
+                    DEBUG.log('Call disconnected');
+                    this.notifyListeners('call', 'disconnect');
+                    this.call = null;
+                    this.isMuted = false;
+                });
+                
+                this.call.on('error', (error) => {
+                    DEBUG.error('Call error:', error);
+                    this.notifyListeners('call', 'error', error);
+                });
+            }
+            
+            async makeCall(number, params = {}) {
+                try {
+                    DEBUG.log(`Making call to ${number}`);
+                    
+                    if (!this.isInitialized || !this.device) {
+                        throw new Error('Device not initialized');
+                    }
+                    
+                    // Merge parameters
+                    const callParams = {
+                        To: number,
+                        ...params
+                    };
+                    
+                    DEBUG.log('Call params:', callParams);
+                    
+                    // Make the call
+                    this.call = this.device.connect(callParams);
+                    
+                    // Set up call listeners
+                    this.setupCallListeners();
+                    
+                    return this.call;
+                } catch (error) {
+                    DEBUG.error('Error making call:', error);
+                    throw error;
+                }
+            }
+            
+            endCall() {
+                if (!this.call) return;
+                
+                try {
+                    DEBUG.log('Ending call');
+                    this.call.disconnect();
+                    this.call = null;
+                    this.isMuted = false;
+                } catch (error) {
+                    DEBUG.error('Error ending call:', error);
+                }
+            }
+            
+            mute(shouldMute = true) {
+                if (!this.call) return;
+                
+                try {
+                    if (shouldMute) {
+                        this.call.mute();
+                        this.isMuted = true;
+                        this.notifyListeners('call', 'mute');
+                    } else {
+                        this.call.unmute();
+                        this.isMuted = false;
+                        this.notifyListeners('call', 'unmute');
+                    }
+                } catch (error) {
+                    DEBUG.error('Error toggling mute:', error);
+                }
+            }
+            
+            isCallMuted() {
+                return this.isMuted;
+            }
+            
+            hasActiveCall() {
+                return !!this.call;
+            }
+            
+            addListener(type, event, callback) {
+                if (type === 'call') {
+                    this.callListeners.push({ event, callback });
+                } else if (type === 'device') {
+                    this.deviceListeners.push({ event, callback });
+                }
+            }
+            
+            notifyListeners(type, event, data) {
+                const listeners = type === 'call' ? this.callListeners : this.deviceListeners;
+                
+                for (const listener of listeners) {
+                    if (listener.event === event) {
+                        listener.callback(data);
+                    }
+                }
+            }
+        }
+
+        // Main dialer controller
+        class DialerController {
+            constructor() {
+                // Elements
+                this.phoneInput = document.getElementById('phone-number');
+                this.callBtn = document.getElementById('call-btn');
+                this.hangupBtn = document.getElementById('hang-up-btn');
+                this.muteBtn = document.getElementById('mute-btn');
+                this.callerIdSelect = document.getElementById('caller-id');
+                this.callStatus = document.getElementById('call-status');
+                this.callDuration = document.getElementById('call-duration');
+                this.dialButtons = document.querySelectorAll('.dial-btn');
+                this.inCallControls = document.querySelector('.in-call-controls');
+                
+                // State
+                this.isInCall = false;
+                this.callStartTime = null;
+                this.durationInterval = null;
+                this.selectedCallerId = '+19788785223';
+                
+                // API and Client
+                this.api = new TwilioAPI('http://localhost:3000');
+                this.twilioClient = new TwilioVoiceClient();
+                
+                // Initialize
+                this.setupEventListeners();
+                this.initTwilio();
+            }
+            
+            updateStatus(status) {
+                this.callStatus.textContent = status;
+            }
+            
+            async initTwilio() {
+                try {
+                    this.updateStatus('Initializing...');
+                    
+                    // Request microphone permissions
+                    try {
+                        DEBUG.log('Requesting microphone access');
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        stream.getTracks().forEach(track => track.stop());
+                        DEBUG.log('Microphone access granted');
+                    } catch (micError) {
+                        DEBUG.error('Microphone access denied:', micError);
+                        this.updateStatus('Error: Microphone access required');
+                        throw micError;
+                    }
+                    
+                    // Get token
+                    try {
+                        DEBUG.log('Getting token');
+                        // Make sure we're sending a clean caller ID without any extra text
+                        const cleanCallerId = this.selectedCallerId.replace(/[^+0-9]/g, '');
+                        DEBUG.log(`Using clean caller ID: ${cleanCallerId}`);
+                        const tokenResponse = await this.api.getToken(cleanCallerId);
+                        DEBUG.log('Token received');
+                        
+                        // Initialize Twilio with more detailed logging
+                        // Log token details for debugging (first and last 20 chars)
+                        const tokenPreview = tokenResponse.token.substring(0, 20) + '...' + tokenResponse.token.substring(tokenResponse.token.length - 20);
+                        DEBUG.log(`Token preview: ${tokenPreview}`);
+                        
+                        // Parse the JWT to inspect its contents (for debugging)
+                        try {
+                            const tokenParts = tokenResponse.token.split('.');
+                            if (tokenParts.length === 3) {
+                                const header = JSON.parse(atob(tokenParts[0]));
+                                const payload = JSON.parse(atob(tokenParts[1]));
+                                DEBUG.log('Token header:', header);
+                                DEBUG.log('Token payload:', {
+                                    iss: payload.iss,
+                                    sub: payload.sub,
+                                    exp: new Date(payload.exp * 1000).toISOString(),
+                                    grants: payload.grants
+                                });
+                            }
+                        } catch (parseError) {
+                            DEBUG.error('Error parsing token:', parseError);
+                        }
+                        
+                        DEBUG.log(`Attempting to initialize Twilio with token`);
+                        try {
+                            // Create a new Audio element to ensure audio is ready
+                            const audioElement = new Audio();
+                            audioElement.autoplay = true;
+                            document.body.appendChild(audioElement);
+                            
+                            // Initialize with detailed error handling
+                            await this.twilioClient.initialize(tokenResponse.token);
+                            DEBUG.log('Twilio initialized successfully');
+                        } catch (initError) {
+                            // Log detailed error information
+                            DEBUG.error('Error initializing Twilio device:', initError);
+                            
+                            // Check for specific error types
+                            if (initError.code) {
+                                DEBUG.error(`Error code: ${initError.code}, message: ${initError.message}`);
+                            }
+                            
+                            if (initError.twilioError) {
+                                DEBUG.error('Twilio specific error:', initError.twilioError);
+                            }
+                            
+                            this.updateStatus(`Error: ${initError.message || 'Failed to initialize device'}`);
+                            throw initError;
+                        }
+                    } catch (tokenError) {
+                        DEBUG.error('Error getting token:', tokenError);
+                        this.updateStatus('Error: Failed to get token');
+                        throw tokenError;
+                    }
+                    
+                    // Set up listeners
+                    this.setupTwilioListeners();
+                    
+                    this.updateStatus('Ready');
+                } catch (error) {
+                    DEBUG.error('Error initializing:', error);
+                    this.updateStatus('Error: Initialization failed');
+                    
+                    // Show debug output on error
+                    document.getElementById('debug-output').style.display = 'block';
+                    DEBUG.updateDebugOutput();
+                    document.getElementById('debug-toggle').textContent = 'Hide Debug Info';
+                }
+            }
+            
+            setupTwilioListeners() {
+                // Device ready
+                this.twilioClient.addListener('device', 'ready', () => {
+                    this.updateStatus('Ready');
+                });
+                
+                // Device error
+                this.twilioClient.addListener('device', 'error', (error) => {
+                    this.updateStatus(`Error: ${error.message || 'Unknown error'}`);
+                });
+                
+                // Call connected
+                this.twilioClient.addListener('call', 'connect', () => {
+                    this.handleCallConnected();
+                });
+                
+                // Call disconnected
+                this.twilioClient.addListener('call', 'disconnect', () => {
+                    this.handleCallDisconnected();
+                });
+                
+                // Call error
+                this.twilioClient.addListener('call', 'error', (error) => {
+                    this.updateStatus(`Call Error: ${error.message || 'Unknown error'}`);
+                    this.handleCallDisconnected();
+                });
+            }
+            
+            setupEventListeners() {
+                // Call button
+                this.callBtn.addEventListener('click', () => {
+                    const phoneNumber = this.phoneInput.value.trim();
+                    if (phoneNumber) {
+                        this.makeCall(phoneNumber);
+                    }
+                });
+                
+                // Hangup button
+                this.hangupBtn.addEventListener('click', () => {
+                    this.twilioClient.endCall();
+                });
+                
+                // Mute button
+                this.muteBtn.addEventListener('click', () => {
+                    const isMuted = this.twilioClient.isCallMuted();
+                    this.twilioClient.mute(!isMuted);
+                    this.muteBtn.textContent = isMuted ? 'Mute' : 'Unmute';
+                });
+                
+                // Debug toggle
+                document.getElementById('debug-toggle').addEventListener('click', () => {
+                    const debugOutput = document.getElementById('debug-output');
+                    const debugToggle = document.getElementById('debug-toggle');
+                    
+                    if (debugOutput.style.display === 'none') {
+                        debugOutput.style.display = 'block';
+                        debugToggle.textContent = 'Hide Debug Info';
+                        DEBUG.updateDebugOutput();
+                    } else {
+                        debugOutput.style.display = 'none';
+                        debugToggle.textContent = 'Show Debug Info';
+                    }
+                });
+                
+                // Dial buttons
+                this.dialButtons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        const value = button.getAttribute('data-value');
+                        this.phoneInput.value += value;
+                    });
+                });
+            }
+            
+            async makeCall(phoneNumber) {
+                try {
+                    this.updateStatus('Calling...');
+                    
+                    // Format phone number if needed
+                    let formattedNumber = phoneNumber;
+                    if (!formattedNumber.startsWith('+')) {
+                        // Clean number and format as US number if 10 digits
+                        const digitsOnly = formattedNumber.replace(/\D/g, '');
+                        if (digitsOnly.length === 10) {
+                            formattedNumber = `+1${digitsOnly}`;
+                        }
+                    }
+                    
+                    // Make the call
+                    DEBUG.log(`Making call to ${formattedNumber}`);
+                    
+                    // Clean the caller ID to ensure it's properly formatted
+                    const cleanCallerId = this.selectedCallerId.replace(/[^+0-9]/g, '');
+                    
+                    const callParams = {
+                        To: formattedNumber,
+                        From: cleanCallerId
+                    };
+                    
+                    DEBUG.log('Call parameters:', callParams);
+                    
+                    // Check if device is initialized
+                    if (!this.twilioClient.isInitialized || !this.twilioClient.device) {
+                        DEBUG.error('Device not initialized before making call');
+                        this.updateStatus('Error: Device not initialized');
+                        
+                        // Try to reinitialize
+                        DEBUG.log('Attempting to reinitialize Twilio...');
+                        try {
+                            const tokenResponse = await this.api.getToken(cleanCallerId);
+                            await this.twilioClient.initialize(tokenResponse.token);
+                            DEBUG.log('Reinitialization successful');
+                        } catch (reinitError) {
+                            DEBUG.error('Failed to reinitialize:', reinitError);
+                            throw new Error('Failed to initialize Twilio device');
+                        }
+                    }
+                    
+                    // Now make the call
+                    try {
+                        await this.twilioClient.makeCall(formattedNumber, callParams);
+                        DEBUG.log('Call initiated successfully');
+                    } catch (callError) {
+                        DEBUG.error('Error in makeCall:', callError);
+                        throw callError;
+                    }
+                } catch (error) {
+                    DEBUG.error('Error making call:', error);
+                    this.updateStatus(`Error: ${error.message || 'Failed to make call'}`);
+                    
+                    // Show debug output on error
+                    document.getElementById('debug-output').style.display = 'block';
+                    DEBUG.updateDebugOutput();
+                    document.getElementById('debug-toggle').textContent = 'Hide Debug Info';
+                }
+            }
+            
+            handleCallConnected() {
+                this.isInCall = true;
+                this.callStartTime = new Date();
+                
+                // Update UI
+                this.callBtn.style.display = 'none';
+                this.hangupBtn.style.display = 'block';
+                this.inCallControls.style.display = 'block';
+                this.updateStatus('Connected');
+                
+                // Start duration timer
+                this.durationInterval = setInterval(() => {
+                    this.updateCallDuration();
+                }, 1000);
+            }
+            
+            handleCallDisconnected() {
+                this.isInCall = false;
+                
+                // Update UI
+                this.callBtn.style.display = 'block';
+                this.hangupBtn.style.display = 'none';
+                this.inCallControls.style.display = 'none';
+                this.updateStatus('Call Ended');
+                
+                // Clear duration timer
+                if (this.durationInterval) {
+                    clearInterval(this.durationInterval);
+                    this.durationInterval = null;
+                }
+                
+                // Reset duration display
+                this.callDuration.textContent = '00:00';
+            }
+            
+            updateCallDuration() {
+                if (!this.callStartTime) return;
+                
+                const now = new Date();
+                const diff = Math.floor((now - this.callStartTime) / 1000);
+                
+                const minutes = Math.floor(diff / 60).toString().padStart(2, '0');
+                const seconds = (diff % 60).toString().padStart(2, '0');
+                
+                this.callDuration.textContent = `${minutes}:${seconds}`;
+            }
+        }
+
+        // Initialize the dialer when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            DEBUG.log('Page loaded, initializing dialer');
+            const dialer = new DialerController();
+        });
+    </script>
+</body>
+</html>

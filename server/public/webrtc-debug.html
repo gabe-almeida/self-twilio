@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Debug Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #3498db;
+            text-align: center;
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #2980b9;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .log-container {
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        .error {
+            color: #e74c3c;
+        }
+        .success {
+            color: #27ae60;
+        }
+        .info {
+            color: #3498db;
+        }
+        .warning {
+            color: #f39c12;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WebRTC Debug Tool</h1>
+        
+        <div class="section">
+            <h2>Browser Capabilities</h2>
+            <button id="check-capabilities">Check WebRTC Capabilities</button>
+            <div id="capabilities-log" class="log-container"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Microphone Access</h2>
+            <button id="request-mic">Request Microphone Access</button>
+            <button id="list-devices">List Audio Devices</button>
+            <div id="mic-log" class="log-container"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Twilio Token</h2>
+            <button id="get-token">Get Twilio Token</button>
+            <button id="parse-token">Parse Token</button>
+            <div id="token-log" class="log-container"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Twilio Device</h2>
+            <button id="init-device">Initialize Device</button>
+            <button id="destroy-device">Destroy Device</button>
+            <div id="device-log" class="log-container"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Test Call</h2>
+            <input type="tel" id="phone-number" placeholder="Enter phone number" value="+19787980276">
+            <button id="make-call">Make Test Call</button>
+            <button id="end-call">End Call</button>
+            <div id="call-log" class="log-container"></div>
+        </div>
+    </div>
+
+    <script src="https://sdk.twilio.com/js/client/releases/1.14.0/twilio.min.js"></script>
+    <script>
+        // Logger utility
+        class Logger {
+            constructor(containerId) {
+                this.container = document.getElementById(containerId);
+            }
+            
+            log(message, type = 'info', data = null) {
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                
+                const timestamp = new Date().toISOString().split('T')[1].slice(0, -1);
+                let logMessage = `${timestamp} - ${message}`;
+                
+                if (data) {
+                    if (typeof data === 'object') {
+                        try {
+                            logMessage += ` ${JSON.stringify(data, null, 2)}`;
+                        } catch (e) {
+                            logMessage += ` [Object cannot be stringified]`;
+                        }
+                    } else {
+                        logMessage += ` ${data}`;
+                    }
+                }
+                
+                entry.textContent = logMessage;
+                this.container.appendChild(entry);
+                this.container.scrollTop = this.container.scrollHeight;
+                
+                // Also log to console
+                if (type === 'error') {
+                    console.error(logMessage);
+                } else if (type === 'warning') {
+                    console.warn(logMessage);
+                } else {
+                    console.log(logMessage);
+                }
+            }
+            
+            clear() {
+                this.container.innerHTML = '';
+            }
+        }
+        
+        // Initialize loggers
+        const capabilitiesLogger = new Logger('capabilities-log');
+        const micLogger = new Logger('mic-log');
+        const tokenLogger = new Logger('token-log');
+        const deviceLogger = new Logger('device-log');
+        const callLogger = new Logger('call-log');
+        
+        // Global state
+        let twilioToken = null;
+        let twilioDevice = null;
+        let currentCall = null;
+        let microphoneStream = null;
+        
+        // Check WebRTC capabilities
+        document.getElementById('check-capabilities').addEventListener('click', async () => {
+            capabilitiesLogger.clear();
+            capabilitiesLogger.log('Checking WebRTC capabilities...');
+            
+            // Check if getUserMedia is supported
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                capabilitiesLogger.log('getUserMedia is supported', 'success');
+            } else {
+                capabilitiesLogger.log('getUserMedia is NOT supported', 'error');
+            }
+            
+            // Check if RTCPeerConnection is supported
+            if (window.RTCPeerConnection) {
+                capabilitiesLogger.log('RTCPeerConnection is supported', 'success');
+            } else {
+                capabilitiesLogger.log('RTCPeerConnection is NOT supported', 'error');
+            }
+            
+            // Check if Twilio SDK is loaded
+            if (window.Twilio) {
+                capabilitiesLogger.log('Twilio SDK is loaded', 'success');
+                capabilitiesLogger.log(`Twilio SDK version: ${Twilio.VERSION}`, 'info');
+            } else {
+                capabilitiesLogger.log('Twilio SDK is NOT loaded', 'error');
+            }
+            
+            // Check browser details
+            capabilitiesLogger.log(`Browser: ${navigator.userAgent}`, 'info');
+            
+            // Check if running in secure context (required for getUserMedia)
+            if (window.isSecureContext) {
+                capabilitiesLogger.log('Running in secure context', 'success');
+            } else {
+                capabilitiesLogger.log('NOT running in secure context', 'error');
+            }
+        });
+        
+        // Request microphone access
+        document.getElementById('request-mic').addEventListener('click', async () => {
+            micLogger.clear();
+            micLogger.log('Requesting microphone access...');
+            
+            try {
+                // Stop any existing stream
+                if (microphoneStream) {
+                    microphoneStream.getTracks().forEach(track => track.stop());
+                }
+                
+                // Request microphone access
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Log success
+                micLogger.log('Microphone access granted', 'success');
+                micLogger.log(`Audio tracks: ${microphoneStream.getAudioTracks().length}`, 'info');
+                
+                // Log track details
+                microphoneStream.getAudioTracks().forEach((track, index) => {
+                    micLogger.log(`Track ${index}: ${track.label}, enabled: ${track.enabled}`, 'info');
+                });
+            } catch (error) {
+                micLogger.log(`Error accessing microphone: ${error.message}`, 'error', error);
+            }
+        });
+        
+        // List audio devices
+        document.getElementById('list-devices').addEventListener('click', async () => {
+            micLogger.log('Listing audio devices...');
+            
+            try {
+                // Request permission first if needed
+                if (!microphoneStream) {
+                    micLogger.log('Requesting microphone access to list devices...');
+                    microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                }
+                
+                // Get devices
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
+                
+                if (audioInputDevices.length === 0) {
+                    micLogger.log('No audio input devices found', 'warning');
+                } else {
+                    micLogger.log(`Found ${audioInputDevices.length} audio input devices`, 'success');
+                    
+                    // Log each device
+                    audioInputDevices.forEach((device, index) => {
+                        micLogger.log(`Device ${index}: ${device.label || 'Unnamed device'}, ID: ${device.deviceId}`, 'info');
+                    });
+                }
+            } catch (error) {
+                micLogger.log(`Error listing audio devices: ${error.message}`, 'error', error);
+            }
+        });
+        
+        // Get Twilio token
+        document.getElementById('get-token').addEventListener('click', async () => {
+            tokenLogger.clear();
+            tokenLogger.log('Requesting Twilio token...');
+            
+            try {
+                const response = await fetch('/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ callerId: '+19788785223' })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.token) {
+                    throw new Error('No token in response');
+                }
+                
+                twilioToken = data.token;
+                
+                // Log success
+                tokenLogger.log(`Token received, length: ${twilioToken.length}`, 'success');
+                tokenLogger.log(`Token preview: ${twilioToken.substring(0, 20)}...${twilioToken.substring(twilioToken.length - 20)}`, 'info');
+                
+                // Parse token
+                parseToken();
+            } catch (error) {
+                tokenLogger.log(`Error getting token: ${error.message}`, 'error', error);
+            }
+        });
+        
+        // Parse token
+        document.getElementById('parse-token').addEventListener('click', parseToken);
+        
+        function parseToken() {
+            if (!twilioToken) {
+                tokenLogger.log('No token to parse. Get a token first.', 'warning');
+                return;
+            }
+            
+            try {
+                tokenLogger.log('Parsing token...', 'info');
+                
+                const tokenParts = twilioToken.split('.');
+                if (tokenParts.length !== 3) {
+                    throw new Error('Invalid JWT format');
+                }
+                
+                // Parse header
+                const headerStr = atob(tokenParts[0]);
+                const header = JSON.parse(headerStr);
+                tokenLogger.log('Token header:', 'info', header);
+                
+                // Parse payload
+                const payloadStr = atob(tokenParts[1]);
+                const payload = JSON.parse(payloadStr);
+                
+                // Format expiration time
+                const expTime = new Date(payload.exp * 1000).toLocaleString();
+                const issuedTime = new Date(payload.iat * 1000).toLocaleString();
+                
+                tokenLogger.log('Token payload:', 'info', {
+                    iss: payload.iss,
+                    sub: payload.sub,
+                    jti: payload.jti,
+                    iat: issuedTime,
+                    exp: expTime,
+                    identity: payload.grants.identity,
+                    voice: payload.grants.voice
+                });
+                
+                // Check if token is expired
+                const now = Math.floor(Date.now() / 1000);
+                if (payload.exp < now) {
+                    tokenLogger.log(`Token is expired! Expired at ${expTime}`, 'error');
+                } else {
+                    const timeLeft = payload.exp - now;
+                    tokenLogger.log(`Token is valid. Expires in ${Math.floor(timeLeft / 60)} minutes and ${timeLeft % 60} seconds`, 'success');
+                }
+                
+                // Check for voice grants
+                if (payload.grants && payload.grants.voice) {
+                    tokenLogger.log('Token has voice grants', 'success');
+                    
+                    // Check for incoming/outgoing permissions
+                    if (payload.grants.voice.incoming && payload.grants.voice.incoming.allow) {
+                        tokenLogger.log('Token allows incoming calls', 'success');
+                    } else {
+                        tokenLogger.log('Token does NOT allow incoming calls', 'warning');
+                    }
+                    
+                    if (payload.grants.voice.outgoing) {
+                        tokenLogger.log('Token allows outgoing calls', 'success');
+                        
+                        // Check for application SID
+                        if (payload.grants.voice.outgoing.application_sid) {
+                            tokenLogger.log(`Token has application SID: ${payload.grants.voice.outgoing.application_sid}`, 'success');
+                        } else {
+                            tokenLogger.log('Token does NOT have application SID', 'error');
+                        }
+                        
+                        // Check for parameters
+                        if (payload.grants.voice.outgoing.params) {
+                            tokenLogger.log('Token has outgoing parameters', 'success', payload.grants.voice.outgoing.params);
+                        }
+                    } else {
+                        tokenLogger.log('Token does NOT allow outgoing calls', 'error');
+                    }
+                } else {
+                    tokenLogger.log('Token does NOT have voice grants', 'error');
+                }
+            } catch (error) {
+                tokenLogger.log(`Error parsing token: ${error.message}`, 'error', error);
+            }
+        }
+        
+        // Initialize Twilio Device
+        document.getElementById('init-device').addEventListener('click', async () => {
+            deviceLogger.clear();
+            deviceLogger.log('Initializing Twilio Device...');
+            
+            // Check if we have a token
+            if (!twilioToken) {
+                deviceLogger.log('No token available. Get a token first.', 'error');
+                return;
+            }
+            
+            // Check if we have microphone access
+            if (!microphoneStream) {
+                deviceLogger.log('No microphone access. Request microphone access first.', 'warning');
+                try {
+                    microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    deviceLogger.log('Microphone access granted', 'success');
+                } catch (error) {
+                    deviceLogger.log(`Error accessing microphone: ${error.message}`, 'error', error);
+                    return;
+                }
+            }
+            
+            // Destroy existing device if any
+            if (twilioDevice) {
+                deviceLogger.log('Destroying existing device...', 'info');
+                try {
+                    twilioDevice.destroy();
+                } catch (error) {
+                    deviceLogger.log(`Error destroying device: ${error.message}`, 'error');
+                }
+                twilioDevice = null;
+            }
+            
+            // Initialize new device
+            try {
+                deviceLogger.log('Creating new Twilio Device...', 'info');
+                
+                // Create device with detailed options
+                twilioDevice = new Twilio.Device(twilioToken, {
+                    debug: true,
+                    codecPreferences: ['opus', 'pcmu'],
+                    fakeLocalDTMF: true,
+                    enableRingingState: true,
+                    // Add edge parameter for better compatibility (don't use both edge and region)
+                    edge: 'ashburn',
+                    // Add explicit audio constraints
+                    audioConstraints: {
+                        autoGainControl: true,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+                
+                // Set up event listeners
+                twilioDevice.on('ready', () => {
+                    deviceLogger.log('Device is ready', 'success');
+                });
+                
+                twilioDevice.on('error', (error) => {
+                    deviceLogger.log(`Device error: ${error.message}`, 'error', error);
+                    
+                    // Log detailed error information
+                    if (error.code) {
+                        deviceLogger.log(`Error code: ${error.code}`, 'error');
+                    }
+                    
+                    if (error.twilioError) {
+                        deviceLogger.log('Twilio specific error:', 'error', error.twilioError);
+                    }
+                });
+                
+                twilioDevice.on('incoming', (call) => {
+                    deviceLogger.log('Incoming call', 'info');
+                    currentCall = call;
+                    setupCallListeners(call);
+                });
+                
+                deviceLogger.log('Device initialized successfully', 'success');
+            } catch (error) {
+                deviceLogger.log(`Error initializing device: ${error.message}`, 'error', error);
+                
+                // Log detailed error information
+                if (error.code) {
+                    deviceLogger.log(`Error code: ${error.code}`, 'error');
+                }
+                
+                if (error.twilioError) {
+                    deviceLogger.log('Twilio specific error:', 'error', error.twilioError);
+                }
+            }
+        });
+        
+        // Destroy Twilio Device
+        document.getElementById('destroy-device').addEventListener('click', () => {
+            if (!twilioDevice) {
+                deviceLogger.log('No device to destroy', 'warning');
+                return;
+            }
+            
+            try {
+                deviceLogger.log('Destroying Twilio Device...', 'info');
+                twilioDevice.destroy();
+                twilioDevice = null;
+                deviceLogger.log('Device destroyed successfully', 'success');
+            } catch (error) {
+                deviceLogger.log(`Error destroying device: ${error.message}`, 'error', error);
+            }
+        });
+        
+        // Make test call
+        document.getElementById('make-call').addEventListener('click', () => {
+            callLogger.clear();
+            
+            // Get phone number
+            const phoneNumber = document.getElementById('phone-number').value.trim();
+            if (!phoneNumber) {
+                callLogger.log('Please enter a phone number', 'error');
+                return;
+            }
+            
+            // Check if device is initialized
+            if (!twilioDevice) {
+                callLogger.log('Twilio Device not initialized. Initialize device first.', 'error');
+                return;
+            }
+            
+            // Make the call
+            try {
+                callLogger.log(`Making call to ${phoneNumber}...`, 'info');
+                
+                // Format phone number if needed
+                let formattedNumber = phoneNumber;
+                if (!formattedNumber.startsWith('+') && formattedNumber.replace(/\D/g, '').length === 10) {
+                    formattedNumber = `+1${formattedNumber.replace(/\D/g, '')}`;
+                    callLogger.log(`Formatted number to ${formattedNumber}`, 'info');
+                }
+                
+                // Set up call parameters
+                const callParams = {
+                    To: formattedNumber,
+                    From: '+19788785223'
+                };
+                
+                callLogger.log('Call parameters:', 'info', callParams);
+                
+                // Make the call
+                currentCall = twilioDevice.connect(callParams);
+                
+                // Set up call listeners
+                setupCallListeners(currentCall);
+                
+                callLogger.log('Call initiated', 'success');
+            } catch (error) {
+                callLogger.log(`Error making call: ${error.message}`, 'error', error);
+            }
+        });
+        
+        // End call
+        document.getElementById('end-call').addEventListener('click', () => {
+            if (!currentCall) {
+                callLogger.log('No active call to end', 'warning');
+                return;
+            }
+            
+            try {
+                callLogger.log('Ending call...', 'info');
+                currentCall.disconnect();
+                callLogger.log('Call ended', 'success');
+            } catch (error) {
+                callLogger.log(`Error ending call: ${error.message}`, 'error', error);
+            }
+        });
+        
+        // Set up call listeners
+        function setupCallListeners(call) {
+            if (!call) return;
+            
+            call.on('accept', () => {
+                callLogger.log('Call accepted', 'success');
+            });
+            
+            call.on('disconnect', () => {
+                callLogger.log('Call disconnected', 'info');
+                currentCall = null;
+            });
+            
+            call.on('error', (error) => {
+                callLogger.log(`Call error: ${error.message}`, 'error', error);
+            });
+            
+            call.on('warning', (warning) => {
+                callLogger.log(`Call warning: ${warning.name}`, 'warning', warning);
+            });
+            
+            call.on('warning-cleared', (warning) => {
+                callLogger.log(`Call warning cleared: ${warning.name}`, 'info');
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebRTC Compatibility Test</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    
+    h1, h2 {
+      color: #1976d2;
+    }
+    
+    .test-card {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .test-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    
+    .test-result {
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    
+    .success {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+    
+    .failure {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+    
+    .warning {
+      background-color: #fff8e1;
+      color: #f57f17;
+    }
+    
+    button {
+      background-color: #1976d2;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    
+    button:hover {
+      background-color: #1565c0;
+    }
+    
+    #log {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      height: 200px;
+      overflow-y: auto;
+      margin-top: 20px;
+    }
+    
+    video {
+      background-color: #000;
+      width: 320px;
+      height: 240px;
+      margin: 10px 0;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    
+    th {
+      background-color: #f2f2f2;
+    }
+    
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <h1>WebRTC Compatibility Test for Twilio Dialer</h1>
+  <p>This tool will help you verify if your system supports WebRTC properly for use with the Twilio Dialer Chrome extension.</p>
+  
+  <div class="test-card">
+    <div class="test-title">1. Browser Compatibility</div>
+    <div>Testing if your browser supports WebRTC...</div>
+    <div id="browser-result" class="test-result"></div>
+  </div>
+  
+  <div class="test-card">
+    <div class="test-title">2. WebRTC API Availability</div>
+    <div>Checking for required WebRTC APIs...</div>
+    <div id="api-result" class="test-result"></div>
+    <table id="api-table">
+      <tr>
+        <th>API</th>
+        <th>Status</th>
+      </tr>
+    </table>
+  </div>
+  
+  <div class="test-card">
+    <div class="test-title">3. Media Devices Access</div>
+    <div>Testing microphone access (requires permission):</div>
+    <button id="mic-test-btn">Test Microphone Access</button>
+    <div id="mic-result" class="test-result"></div>
+  </div>
+  
+  <div class="test-card">
+    <div class="test-title">4. Connection Test</div>
+    <div>Testing STUN/TURN server connectivity:</div>
+    <button id="connection-test-btn">Test Connection</button>
+    <div id="connection-result" class="test-result"></div>
+  </div>
+  
+  <h2>Detailed Test Log</h2>
+  <div id="log"></div>
+  
+  <h2>Troubleshooting Steps</h2>
+  <div class="test-card">
+    <div class="test-title">If Tests Failed:</div>
+    <ol>
+      <li><strong>Update your browser</strong> to the latest version.</li>
+      <li><strong>Check microphone permissions</strong> in browser settings.</li>
+      <li><strong>Disable extensions</strong> that might be interfering with WebRTC (privacy extensions, ad blockers).</li>
+      <li><strong>Check firewall settings</strong> to ensure they're not blocking WebRTC traffic.</li>
+      <li><strong>Try in Incognito/Private mode</strong> to rule out extension conflicts.</li>
+      <li>If on a corporate network, check with IT as <strong>WebRTC might be blocked</strong> by network policy.</li>
+    </ol>
+  </div>
+  
+  <script>
+    // Logging function
+    function log(message, type = 'info') {
+      const logEl = document.getElementById('log');
+      const time = new Date().toTimeString().split(' ')[0];
+      const entry = document.createElement('div');
+      entry.textContent = `[${time}] ${message}`;
+      
+      if (type === 'error') {
+        entry.style.color = '#c62828';
+      } else if (type === 'success') {
+        entry.style.color = '#2e7d32';
+      } else if (type === 'warning') {
+        entry.style.color = '#f57f17';
+      }
+      
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    
+    // Set test result
+    function setResult(elementId, status, message) {
+      const element = document.getElementById(elementId);
+      element.textContent = message;
+      element.classList.remove('success', 'failure', 'warning');
+      
+      if (status === 'success') {
+        element.classList.add('success');
+      } else if (status === 'failure') {
+        element.classList.add('failure');
+      } else if (status === 'warning') {
+        element.classList.add('warning');
+      }
+    }
+    
+    // Browser compatibility test
+    function testBrowserCompatibility() {
+      log('Testing browser compatibility...');
+      
+      const browser = {
+        name: '',
+        version: '',
+        supported: false
+      };
+      
+      // Detect browser
+      const userAgent = navigator.userAgent;
+      if (userAgent.indexOf('Chrome') !== -1) {
+        browser.name = 'Chrome';
+        browser.version = userAgent.match(/Chrome\/(\d+)/)[1];
+        browser.supported = parseInt(browser.version) >= 56;
+      } else if (userAgent.indexOf('Firefox') !== -1) {
+        browser.name = 'Firefox';
+        browser.version = userAgent.match(/Firefox\/(\d+)/)[1];
+        browser.supported = parseInt(browser.version) >= 44;
+      } else if (userAgent.indexOf('Safari') !== -1 && userAgent.indexOf('Chrome') === -1) {
+        browser.name = 'Safari';
+        browser.version = userAgent.match(/Version\/(\d+)/)[1];
+        browser.supported = parseInt(browser.version) >= 11;
+      } else if (userAgent.indexOf('Edge') !== -1 || userAgent.indexOf('Edg/') !== -1) {
+        browser.name = 'Edge';
+        browser.version = userAgent.match(/Edge\/(\d+)/) || userAgent.match(/Edg\/(\d+)/);
+        browser.version = browser.version ? browser.version[1] : 'Unknown';
+        browser.supported = true; // Modern Edge is Chromium-based
+      } else {
+        browser.name = 'Unknown';
+        browser.supported = false;
+      }
+      
+      if (browser.supported) {
+        setResult('browser-result', 'success', `✅ ${browser.name} ${browser.version} supports WebRTC`);
+        log(`Browser: ${browser.name} ${browser.version} (WebRTC supported)`, 'success');
+      } else {
+        setResult('browser-result', 'failure', `❌ ${browser.name} ${browser.version} may not fully support WebRTC`);
+        log(`Browser: ${browser.name} ${browser.version} (WebRTC support uncertain)`, 'error');
+      }
+      
+      return browser.supported;
+    }
+    
+    // WebRTC API test
+    function testWebRTCAPI() {
+      log('Testing WebRTC API availability...');
+      
+      const table = document.getElementById('api-table');
+      let allAvailable = true;
+      
+      const apis = [
+        { name: 'RTCPeerConnection', obj: window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection },
+        { name: 'getUserMedia', obj: navigator.mediaDevices && navigator.mediaDevices.getUserMedia },
+        { name: 'mediaDevices.enumerateDevices', obj: navigator.mediaDevices && navigator.mediaDevices.enumerateDevices },
+        { name: 'RTCSessionDescription', obj: window.RTCSessionDescription || window.webkitRTCSessionDescription || window.mozRTCSessionDescription },
+        { name: 'RTCIceCandidate', obj: window.RTCIceCandidate || window.webkitRTCIceCandidate || window.mozRTCIceCandidate }
+      ];
+      
+      apis.forEach(api => {
+        const available = !!api.obj;
+        
+        const row = document.createElement('tr');
+        const nameCell = document.createElement('td');
+        const statusCell = document.createElement('td');
+        
+        nameCell.textContent = api.name;
+        statusCell.textContent = available ? '✅ Available' : '❌ Not Available';
+        
+        row.appendChild(nameCell);
+        row.appendChild(statusCell);
+        table.appendChild(row);
+        
+        log(`API ${api.name}: ${available ? 'Available' : 'Not Available'}`, available ? 'success' : 'error');
+        
+        if (!available) {
+          allAvailable = false;
+        }
+      });
+      
+      if (allAvailable) {
+        setResult('api-result', 'success', '✅ All WebRTC APIs are available');
+        log('All WebRTC APIs are available', 'success');
+      } else {
+        setResult('api-result', 'failure', '❌ Some WebRTC APIs are missing');
+        log('Some WebRTC APIs are missing - WebRTC may not work correctly', 'error');
+      }
+      
+      return allAvailable;
+    }
+    
+    // Microphone access test
+    document.getElementById('mic-test-btn').addEventListener('click', function() {
+      log('Testing microphone access...');
+      setResult('mic-result', 'warning', '⏳ Testing microphone access...');
+      
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setResult('mic-result', 'failure', '❌ getUserMedia API not available');
+        log('getUserMedia API not available', 'error');
+        return;
+      }
+      
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          setResult('mic-result', 'success', '✅ Microphone access granted');
+          log('Microphone access successfully granted', 'success');
+          
+          // Stop tracks
+          stream.getTracks().forEach(track => track.stop());
+        })
+        .catch(err => {
+          setResult('mic-result', 'failure', `❌ Microphone access denied: ${err.message}`);
+          log(`Microphone access denied: ${err.message}`, 'error');
+        });
+    });
+    
+    // Connection test
+    document.getElementById('connection-test-btn').addEventListener('click', async function() {
+      log('Testing STUN/TURN server connectivity...');
+      setResult('connection-result', 'warning', '⏳ Testing connection...');
+      
+      if (!window.RTCPeerConnection) {
+        setResult('connection-result', 'failure', '❌ RTCPeerConnection not available');
+        log('RTCPeerConnection not available', 'error');
+        return;
+      }
+      
+      try {
+        // Use Google's public STUN server
+        const iceServers = [
+          { urls: 'stun:stun.l.google.com:19302' }
+        ];
+        
+        const pc1 = new RTCPeerConnection({ iceServers });
+        const pc2 = new RTCPeerConnection({ iceServers });
+        
+        let candidatesReceived = 0;
+        
+        pc1.onicecandidate = e => {
+          if (e.candidate) {
+            log(`ICE candidate generated: ${e.candidate.candidate.split(' ')[7]}`, 'info');
+            pc2.addIceCandidate(e.candidate);
+            candidatesReceived++;
+          }
+        };
+        
+        pc2.onicecandidate = e => {
+          if (e.candidate) {
+            log(`ICE candidate generated: ${e.candidate.candidate.split(' ')[7]}`, 'info');
+            pc1.addIceCandidate(e.candidate);
+            candidatesReceived++;
+          }
+        };
+        
+        // Create a data channel to trigger ICE gathering
+        const dc = pc1.createDataChannel('test');
+        
+        const offer = await pc1.createOffer();
+        await pc1.setLocalDescription(offer);
+        await pc2.setRemoteDescription(offer);
+        
+        const answer = await pc2.createAnswer();
+        await pc2.setLocalDescription(answer);
+        await pc1.setRemoteDescription(answer);
+        
+        // Give time for ICE gathering
+        setTimeout(() => {
+          if (candidatesReceived > 0) {
+            setResult('connection-result', 'success', '✅ Connection test passed');
+            log(`Connection test passed (${candidatesReceived} candidates received)`, 'success');
+          } else {
+            setResult('connection-result', 'failure', '❌ No ICE candidates received');
+            log('No ICE candidates received - network may be blocking WebRTC', 'error');
+          }
+          
+          // Clean up
+          pc1.close();
+          pc2.close();
+        }, 5000);
+      } catch (err) {
+        setResult('connection-result', 'failure', `❌ Connection test failed: ${err.message}`);
+        log(`Connection test failed: ${err.message}`, 'error');
+      }
+    });
+    
+    // Run all tests automatically
+    window.addEventListener('load', async function() {
+      // Update the log display to be visible by default for easier debugging
+      document.getElementById('log').style.height = '300px';
+      
+      // Add console log mirror
+      console.originalLog = console.log;
+      console.originalError = console.error;
+      console.originalWarn = console.warn;
+      
+      console.log = function() {
+        console.originalLog.apply(console, arguments);
+        log(Array.from(arguments).join(' '));
+      };
+      console.error = function() {
+        console.originalError.apply(console, arguments);
+        log(Array.from(arguments).join(' '), 'error');
+      };
+      console.warn = function() {
+        console.originalWarn.apply(console, arguments);
+        log(Array.from(arguments).join(' '), 'warning');
+      };
+      
+      // Log page loaded
+      log('WebRTC test page loaded. Running tests automatically...', 'info');
+      
+      // Log system information
+      log('System Info:', 'info');
+      log('User Agent: ' + navigator.userAgent, 'info');
+      log('Platform: ' + navigator.platform, 'info');
+      log('Language: ' + navigator.language, 'info');
+      
+      // Run browser compatibility test
+      const browserCompatible = testBrowserCompatibility();
+      
+      // Run WebRTC API test
+      const apisAvailable = testWebRTCAPI();
+      
+      // Automatically run microphone test after a delay
+      setTimeout(async () => {
+        log('Automatically testing microphone access...', 'info');
+        setResult('mic-result', 'warning', '⏳ Testing microphone access...');
+        
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setResult('mic-result', 'failure', '❌ getUserMedia API not available');
+          log('getUserMedia API not available', 'error');
+          return;
+        }
+        
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          setResult('mic-result', 'success', '✅ Microphone access granted');
+          log('Microphone access successfully granted', 'success');
+          
+          // Stop tracks
+          stream.getTracks().forEach(track => track.stop());
+          
+          // Automatically run connection test after microphone test succeeds
+          setTimeout(async () => {
+            await runConnectionTest();
+          }, 1000);
+        } catch (err) {
+          setResult('mic-result', 'failure', `❌ Microphone access denied: ${err.message}`);
+          log(`Microphone access denied: ${err.message}`, 'error');
+        }
+      }, 1000);
+    });
+    
+    // Connection test function
+    async function runConnectionTest() {
+      log('Testing STUN/TURN server connectivity...', 'info');
+      setResult('connection-result', 'warning', '⏳ Testing connection...');
+      
+      if (!window.RTCPeerConnection) {
+        setResult('connection-result', 'failure', '❌ RTCPeerConnection not available');
+        log('RTCPeerConnection not available', 'error');
+        return;
+      }
+      
+      try {
+        // Use Google's public STUN server
+        const iceServers = [
+          { urls: 'stun:stun.l.google.com:19302' }
+        ];
+        
+        log('Creating RTCPeerConnection with ICE servers: ' + JSON.stringify(iceServers), 'info');
+        
+        const pc1 = new RTCPeerConnection({ iceServers });
+        const pc2 = new RTCPeerConnection({ iceServers });
+        
+        let candidatesReceived = 0;
+        
+        pc1.onicecandidate = e => {
+          if (e.candidate) {
+            const candidateInfo = e.candidate.candidate.split(' ');
+            log(`ICE candidate from pc1: ${candidateInfo[7]}`, 'info');
+            pc2.addIceCandidate(e.candidate);
+            candidatesReceived++;
+          }
+        };
+        
+        pc2.onicecandidate = e => {
+          if (e.candidate) {
+            const candidateInfo = e.candidate.candidate.split(' ');
+            log(`ICE candidate from pc2: ${candidateInfo[7]}`, 'info');
+            pc1.addIceCandidate(e.candidate);
+            candidatesReceived++;
+          }
+        };
+        
+        // Create a data channel to trigger ICE gathering
+        log('Creating data channel...', 'info');
+        const dc = pc1.createDataChannel('test');
+        
+        log('Creating offer...', 'info');
+        const offer = await pc1.createOffer();
+        log('Setting local description on pc1...', 'info');
+        await pc1.setLocalDescription(offer);
+        log('Setting remote description on pc2...', 'info');
+        await pc2.setRemoteDescription(offer);
+        
+        log('Creating answer...', 'info');
+        const answer = await pc2.createAnswer();
+        log('Setting local description on pc2...', 'info');
+        await pc2.setLocalDescription(answer);
+        log('Setting remote description on pc1...', 'info');
+        await pc1.setRemoteDescription(answer);
+        
+        log('Waiting for ICE candidates...', 'info');
+        
+        // Give time for ICE gathering
+        setTimeout(() => {
+          log(`Connection test completed with ${candidatesReceived} candidates`, candidatesReceived > 0 ? 'success' : 'warning');
+          
+          if (candidatesReceived > 0) {
+            setResult('connection-result', 'success', '✅ Connection test passed');
+            log(`Connection test passed (${candidatesReceived} candidates received)`, 'success');
+          } else {
+            setResult('connection-result', 'failure', '❌ No ICE candidates received');
+            log('No ICE candidates received - network may be blocking WebRTC', 'error');
+          }
+          
+          // Clean up
+          pc1.close();
+          pc2.close();
+          
+          // Final report
+          let finalReport = "Test Summary:\n";
+          finalReport += browserCompatible ? "✅ Browser compatible\n" : "❌ Browser may not be compatible\n";
+          finalReport += apisAvailable ? "✅ All WebRTC APIs available\n" : "❌ Some WebRTC APIs missing\n";
+          finalReport += document.getElementById('mic-result').classList.contains('success') ? "✅ Microphone access granted\n" : "❌ Microphone access issues\n";
+          finalReport += candidatesReceived > 0 ? "✅ Network allows WebRTC connections\n" : "❌ Network may block WebRTC\n";
+          
+          log(finalReport, apisAvailable && candidatesReceived > 0 ? 'success' : 'warning');
+        }, 5000);
+      } catch (err) {
+        setResult('connection-result', 'failure', `❌ Connection test failed: ${err.message}`);
+        log(`Connection test failed: ${err.message}`, 'error');
+      }
+    }
+  </script>
+</body>
+</html>

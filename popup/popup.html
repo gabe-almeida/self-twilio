@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Twilio Dialer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="dialer-container">
+    <div class="header">
+      <h1>Twilio Dialer</h1>
+    </div>
+    
+    <div class="caller-id-section">
+      <label for="caller-id">From:</label>
+      <select id="caller-id">
+        <option value="+19788785223" selected>+1 978 878 5223</option>
+      </select>
+    </div>
+    
+    <div class="audio-device-section" style="margin-top: 8px; display: flex; align-items: center; gap: 10px;">
+      <label for="microphone-select" style="font-weight: bold; font-size: 14px;">Mic:</label>
+      <select id="microphone-select" style="flex: 1; padding: 6px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 12px;">
+        <option value="default">Default Microphone</option>
+        <!-- Additional microphones will be populated via JavaScript -->
+      </select>
+    </div>
+    
+    <div class="phone-display">
+      <input type="text" id="phone-number" placeholder="Enter phone number">
+      <button id="clear-btn">×</button>
+    </div>
+    
+    <div class="status-display">
+      <div id="call-status">Ready</div>
+      <div id="call-duration">00:00</div>
+    </div>
+    
+    <div class="dialer-pad">
+      <div class="dialer-row">
+        <button class="dial-btn" data-value="1">1</button>
+        <button class="dial-btn" data-value="2">2<div class="sub-text">ABC</div></button>
+        <button class="dial-btn" data-value="3">3<div class="sub-text">DEF</div></button>
+      </div>
+      <div class="dialer-row">
+        <button class="dial-btn" data-value="4">4<div class="sub-text">GHI</div></button>
+        <button class="dial-btn" data-value="5">5<div class="sub-text">JKL</div></button>
+        <button class="dial-btn" data-value="6">6<div class="sub-text">MNO</div></button>
+      </div>
+      <div class="dialer-row">
+        <button class="dial-btn" data-value="7">7<div class="sub-text">PQRS</div></button>
+        <button class="dial-btn" data-value="8">8<div class="sub-text">TUV</div></button>
+        <button class="dial-btn" data-value="9">9<div class="sub-text">WXYZ</div></button>
+      </div>
+      <div class="dialer-row">
+        <button class="dial-btn" data-value="*">*</button>
+        <button class="dial-btn" data-value="0">0<div class="sub-text">+</div></button>
+        <button class="dial-btn" data-value="#">#</button>
+      </div>
+    </div>
+    
+    <div class="call-controls">
+      <button id="call-btn" class="primary-btn">Call</button>
+      <div class="in-call-controls" style="display: none;">
+        <button id="mute-btn">Mute</button>
+        <button id="hangup-btn" class="danger-btn">Hang up</button>
+      </div>
+    </div>
+    
+    <div class="debug-controls" style="margin-top: 20px; text-align: center;">
+      <button id="test-server-btn" style="padding: 5px; font-size: 12px; background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 4px;">Test Server Connection</button>
+      <button id="debug-info-btn" style="padding: 5px; font-size: 12px; background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; margin-left: 10px;">Show Debug Info</button>
+    </div>
+    <div id="debug-output" style="margin-top: 10px; padding: 5px; font-size: 10px; background-color: #f5f5f5; border: 1px solid #ddd; max-height: 100px; overflow-y: auto; display: none;"></div>
+    
+    <div style="margin-top: 10px; text-align: center; font-size: 12px;">
+      <a href="#" id="webrtc-test-link" style="color: #1976d2; text-decoration: none;">Test WebRTC Compatibility</a>
+    </div>
+    
+    <div id="incoming-call-container" style="display: none;">
+      <div class="incoming-call-info">
+        <div id="incoming-caller">Incoming Call</div>
+        <div id="incoming-number"></div>
+      </div>
+      <div class="incoming-call-actions">
+        <button id="answer-btn" class="success-btn">Answer</button>
+        <button id="decline-btn" class="danger-btn">Decline</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../config/config.js"></script>
+  <script src="../lib/api.js"></script>
+  <script src="../lib/twilio.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
