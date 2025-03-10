@@ -40,11 +40,15 @@ function handleOutgoingCall(params) {
   const from = params.From || params.from || params.callerId || '+19788785223';
   const callId = params.CallSid || 'unknown';
   
+  // Add detailed diagnostic information
   console.log(`Handling outgoing call [${callId}] - To: ${to}, From: ${from}`);
+  console.log('Call direction:', params.Direction || 'unknown');
+  console.log('Client name:', params.ClientName || params.client || 'unknown');
+  console.log('Call status:', params.CallStatus || 'unknown');
   
   try {
     // Check if this is a call from the browser client
-    if (params.ClientName || params.client) {
+    if (params.ClientName || params.client || params.Caller === 'client:twilio-dialer-user') {
       console.log(`Call [${callId}]: Browser-initiated call, connecting to destination`);
       
       // Create a dial verb that connects the browser to the destination number
@@ -54,6 +58,8 @@ function handleOutgoingCall(params) {
         answerOnBridge: true,
         record: 'do-not-record',
         timeLimit: 14400,
+        action: `${process.env.SERVER_BASE_URL || 'http://localhost:3000'}/voice/call-ended?callId=${callId}`,
+        method: 'POST'
       });
       
       // Format the destination number
@@ -62,10 +68,14 @@ function handleOutgoingCall(params) {
         formattedNumber = `+1${formattedNumber}`;
       }
       
-      // Dial the destination number
-      dial.number(formattedNumber);
+      // Dial the destination number with additional parameters for better audio quality
+      dial.number({
+        statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+        statusCallback: `${process.env.SERVER_BASE_URL || 'http://localhost:3000'}/api/call-status`,
+        statusCallbackMethod: 'POST'
+      }, formattedNumber);
       
-      console.log(`Call [${callId}]: Dialing ${formattedNumber} from browser client`);
+      console.log(`Call [${callId}]: Dialing ${formattedNumber} from browser client with enhanced audio monitoring`);
     }
     // Check if this is a call that needs to be connected to the browser
     else {

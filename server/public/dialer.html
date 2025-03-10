@@ -115,6 +115,91 @@
         .in-call-controls {
             display: none;
             margin-top: 15px;
+            text-align: center;
+        }
+        
+        /* Audio visualization styles */
+        .audio-visualizer {
+            margin-top: 10px;
+            width: 100%;
+            height: 40px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .visualizer-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .visualizer-bar {
+            width: 4px;
+            height: 5px;
+            margin: 0 2px;
+            background-color: #3498db;
+            border-radius: 2px;
+            transition: height 0.1s ease;
+        }
+        
+        .audio-level-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+            display: block;
+        }
+        
+        .audio-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .control-label {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .audio-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid #ddd;
+            background-color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .audio-btn:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .audio-btn.muted {
+            background-color: #e74c3c;
+            color: white;
+        }
+        
+        .audio-btn.muted:hover {
+            background-color: #c0392b;
+        }
+        
+        .audio-btn i {
+            font-size: 18px;
         }
     </style>
 </head>
@@ -126,6 +211,9 @@
             <label for="caller-id">Caller ID:</label>
             <select id="caller-id">
                 <option value="+19788785223">+1 (978) 878-5223</option>
+                <option value="+19783231057">+1 (978) 323-1057</option>
+                <option value="+19789993551">+1 (978) 999-3551</option>
+                <option value="+19789248157">+1 (978) 924-8157</option>
             </select>
         </div>
         
@@ -155,9 +243,33 @@
         </div>
         
         <div class="in-call-controls">
-            <button id="mute-btn">Mute</button>
+            <div class="audio-controls">
+                <div class="control-group">
+                    <button id="mute-btn" class="audio-btn">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <span class="control-label">Microphone</span>
+                </div>
+                <div class="control-group">
+                    <button id="speaker-btn" class="audio-btn">
+                        <i class="fas fa-volume-up"></i>
+                    </button>
+                    <span class="control-label">Speaker</span>
+                </div>
+            </div>
             <span id="call-duration">00:00</span>
+            
+            <!-- Audio visualizer -->
+            <div class="audio-visualizer">
+                <div class="visualizer-container" id="audio-visualizer">
+                    <!-- Bars will be added dynamically -->
+                </div>
+            </div>
+            <span class="audio-level-label">Incoming Audio Level</span>
         </div>
+
+        <!-- Add Font Awesome for icons -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
         
         <div class="status" id="call-status">Ready</div>
         
@@ -335,6 +447,61 @@
                         this.notifyListeners('device', 'incoming', call);
                     });
                     
+                    // Set up device audio settings with proper error handling
+                    try {
+                        DEBUG.log('Configuring device audio settings');
+                        this.device.audio.incoming(true); // Enable incoming audio
+                        this.device.audio.outgoing(true); // Enable outgoing audio (microphone)
+                        
+                        // Only set speaker devices if available
+                        if (this.device.audio && this.device.audio.speakerDevices) {
+                            try {
+                                // Get available devices first
+                                navigator.mediaDevices.enumerateDevices()
+                                    .then(devices => {
+                                        const outputDevices = devices.filter(device => device.kind === 'audiooutput');
+                                        if (outputDevices.length > 0) {
+                                            // Use the first available output device instead of 'default'
+                                            this.device.audio.speakerDevices.set(outputDevices[0].deviceId);
+                                            DEBUG.log('Speaker device set to:', outputDevices[0].label || outputDevices[0].deviceId);
+                                        } else {
+                                            DEBUG.log('No audio output devices found');
+                                        }
+                                    })
+                                    .catch(err => {
+                                        DEBUG.error('Error enumerating audio devices:', err);
+                                    });
+                            } catch (speakerErr) {
+                                DEBUG.error('Error setting speaker device:', speakerErr);
+                            }
+                        }
+                        
+                        // Only set input device if available
+                        if (this.device.audio && this.device.audio.availableInputDevices) {
+                            try {
+                                navigator.mediaDevices.enumerateDevices()
+                                    .then(devices => {
+                                        const inputDevices = devices.filter(device => device.kind === 'audioinput');
+                                        if (inputDevices.length > 0) {
+                                            // Use the first available input device
+                                            this.device.audio.inputDevice = inputDevices[0].deviceId;
+                                            DEBUG.log('Input device set to:', inputDevices[0].label || inputDevices[0].deviceId);
+                                        } else {
+                                            DEBUG.log('No audio input devices found');
+                                        }
+                                    })
+                                    .catch(err => {
+                                        DEBUG.error('Error enumerating audio devices:', err);
+                                    });
+                            } catch (inputErr) {
+                                DEBUG.error('Error setting input device:', inputErr);
+                            }
+                        }
+                    } catch (audioErr) {
+                        DEBUG.error('Error configuring audio settings:', audioErr);
+                        // Continue with initialization even if audio setup fails
+                    }
+                    
                     this.isInitialized = true;
                     DEBUG.log('Device initialized successfully');
                 } catch (error) {
@@ -347,7 +514,21 @@
                 if (!this.call) return;
                 
                 this.call.on('accept', () => {
-                    DEBUG.log('Call accepted');
+                    DEBUG.log('Call accepted - audio connection established');
+                    
+                    // Log audio stream details when call is connected
+                    if (this.call.mediaStream) {
+                        try {
+                            const tracks = this.call.mediaStream.getTracks();
+                            DEBUG.log(`Call has ${tracks.length} media tracks`);
+                            tracks.forEach(track => {
+                                DEBUG.log(`Media track: ${track.kind}, enabled: ${track.enabled}, muted: ${track.muted}`);
+                            });
+                        } catch (e) {
+                            DEBUG.error('Error inspecting media tracks:', e);
+                        }
+                    }
+                    
                     this.notifyListeners('call', 'connect');
                 });
                 
@@ -362,6 +543,45 @@
                     DEBUG.error('Call error:', error);
                     this.notifyListeners('call', 'error', error);
                 });
+                
+                // Monitor additional call states
+                this.call.on('ringing', () => {
+                    DEBUG.log('Call is ringing');
+                });
+                
+                this.call.on('cancel', () => {
+                    DEBUG.log('Call was canceled');
+                });
+                
+                // Monitor audio quality if possible
+                if (typeof this.call.on === 'function' && typeof this.call.getStats === 'function') {
+                    try {
+                        // Set up periodic stats checking for audio quality
+                        const statsInterval = setInterval(() => {
+                            if (!this.call) {
+                                clearInterval(statsInterval);
+                                return;
+                            }
+                            
+                            this.call.getStats().then(stats => {
+                                if (stats && stats.audio) {
+                                    const audioStats = {
+                                        codecName: stats.audio.codecName,
+                                        inputLevel: stats.audio.inputLevel,
+                                        outputLevel: stats.audio.outputLevel,
+                                        jitter: stats.audio.jitter,
+                                        rtt: stats.audio.rtt
+                                    };
+                                    DEBUG.log('Audio stats:', audioStats);
+                                }
+                            }).catch(err => {
+                                DEBUG.error('Error getting call stats:', err);
+                            });
+                        }, 5000); // Check every 5 seconds
+                    } catch (e) {
+                        DEBUG.error('Error setting up stats monitoring:', e);
+                    }
+                }
             }
             
             async makeCall(number, params = {}) {
@@ -453,6 +673,27 @@
 
         // Main dialer controller
         class DialerController {
+            // Add reconnection method for network issues
+            async reconnectDevice(callerId) {
+                try {
+                    DEBUG.log('Attempting to reconnect Twilio device...');
+                    this.updateStatus('Reconnecting...');
+                    
+                    // Get a fresh token
+                    const tokenResponse = await this.api.getToken(callerId);
+                    
+                    // Reinitialize the device
+                    await this.twilioClient.initialize(tokenResponse.token);
+                    
+                    DEBUG.log('Device reconnected successfully');
+                    this.updateStatus('Reconnected');
+                    return true;
+                } catch (error) {
+                    DEBUG.error('Failed to reconnect device:', error);
+                    this.updateStatus('Reconnection failed');
+                    return false;
+                }
+            }
             constructor() {
                 // Elements
                 this.phoneInput = document.getElementById('phone-number');
@@ -534,10 +775,30 @@
                         
                         DEBUG.log(`Attempting to initialize Twilio with token`);
                         try {
-                            // Create a new Audio element to ensure audio is ready
+                            // Create and configure audio elements for better audio handling
                             const audioElement = new Audio();
                             audioElement.autoplay = true;
+                            audioElement.id = 'twilio-audio';
+                            audioElement.controls = false; // hidden controls
+                            
+                            // Create an audio context for better audio processing
+                            try {
+                                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                                const audioContext = new AudioContext();
+                                DEBUG.log('Audio context created successfully');
+                                
+                                // This helps with iOS Safari audio initialization
+                                if (audioContext.state === 'suspended') {
+                                    audioContext.resume().then(() => {
+                                        DEBUG.log('Audio context resumed');
+                                    });
+                                }
+                            } catch (audioErr) {
+                                DEBUG.log('Audio context creation failed:', audioErr);
+                            }
+                            
                             document.body.appendChild(audioElement);
+                            DEBUG.log('Audio element created and appended to page');
                             
                             // Initialize with detailed error handling
                             await this.twilioClient.initialize(tokenResponse.token);
@@ -625,7 +886,64 @@
                 this.muteBtn.addEventListener('click', () => {
                     const isMuted = this.twilioClient.isCallMuted();
                     this.twilioClient.mute(!isMuted);
-                    this.muteBtn.textContent = isMuted ? 'Mute' : 'Unmute';
+                    
+                    // Update icon and styling
+                    if (isMuted) {
+                        this.muteBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+                        this.muteBtn.classList.remove('muted');
+                    } else {
+                        this.muteBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+                        this.muteBtn.classList.add('muted');
+                    }
+                });
+                
+                // Speaker button
+                this.speakerBtn = document.getElementById('speaker-btn');
+                this.speakerBtn.addEventListener('click', () => {
+                    // Toggle speaker volume
+                    if (this.speakerBtn.classList.contains('muted')) {
+                        // Unmute speaker
+                        this.speakerBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+                        this.speakerBtn.classList.remove('muted');
+                        
+                        // Set audio element volume to 1
+                        const audioElement = document.getElementById('twilio-audio');
+                        if (audioElement) {
+                            audioElement.volume = 1.0;
+                        }
+                        
+                        // Try to set device volume if available
+                        if (this.twilioClient && this.twilioClient.device &&
+                            this.twilioClient.device.audio) {
+                            try {
+                                this.twilioClient.device.audio.speakerVolume = 1.0;
+                                DEBUG.log('Speaker volume set to 100%');
+                            } catch (e) {
+                                DEBUG.error('Error setting speaker volume:', e);
+                            }
+                        }
+                    } else {
+                        // Mute speaker
+                        this.speakerBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                        this.speakerBtn.classList.add('muted');
+                        
+                        // Set audio element volume to 0
+                        const audioElement = document.getElementById('twilio-audio');
+                        if (audioElement) {
+                            audioElement.volume = 0;
+                        }
+                        
+                        // Try to set device volume if available
+                        if (this.twilioClient && this.twilioClient.device &&
+                            this.twilioClient.device.audio) {
+                            try {
+                                this.twilioClient.device.audio.speakerVolume = 0;
+                                DEBUG.log('Speaker volume set to 0%');
+                            } catch (e) {
+                                DEBUG.error('Error setting speaker volume:', e);
+                            }
+                        }
+                    }
                 });
                 
                 // Debug toggle
@@ -682,7 +1000,7 @@
                     // Check if device is initialized
                     if (!this.twilioClient.isInitialized || !this.twilioClient.device) {
                         DEBUG.error('Device not initialized before making call');
-                        this.updateStatus('Error: Device not initialized');
+                        this.updateStatus('Initializing device...');
                         
                         // Try to reinitialize
                         DEBUG.log('Attempting to reinitialize Twilio...');
@@ -690,16 +1008,92 @@
                             const tokenResponse = await this.api.getToken(cleanCallerId);
                             await this.twilioClient.initialize(tokenResponse.token);
                             DEBUG.log('Reinitialization successful');
+                            this.twilioClient.isInitialized = true; // Make sure flag is set
+                            this.updateStatus('Connecting call...'); // Update UI status
                         } catch (reinitError) {
                             DEBUG.error('Failed to reinitialize:', reinitError);
+                            this.updateStatus('Error: Failed to initialize device');
                             throw new Error('Failed to initialize Twilio device');
                         }
                     }
                     
-                    // Now make the call
+                    // Now make the call with network error handling
                     try {
-                        await this.twilioClient.makeCall(formattedNumber, callParams);
-                        DEBUG.log('Call initiated successfully');
+                        // Add network status monitoring
+                        window.addEventListener('offline', () => {
+                            this.updateStatus('Network connection lost. Reconnecting...');
+                            DEBUG.error('Network connection lost during call');
+                        });
+                        
+                        window.addEventListener('online', () => {
+                            this.updateStatus('Network connection restored');
+                            DEBUG.log('Network connection restored');
+                            
+                            // Attempt to reconnect device if needed
+                            if (this.twilioClient && this.twilioClient.device &&
+                                (!this.twilioClient.isInitialized || this.twilioClient.device.status === 'offline')) {
+                                this.reconnectDevice(cleanCallerId);
+                            }
+                        });
+                        
+                        // Check network before making call
+                        if (!navigator.onLine) {
+                            this.updateStatus('Network offline. Please check your connection.');
+                            throw new Error('Network offline. Cannot make call without internet connection.');
+                        }
+                        
+                        // Set up retry logic
+                        const maxRetries = 3;
+                        let retryCount = 0;
+                        let success = false;
+                        
+                        while (retryCount < maxRetries && !success) {
+                            try {
+                                await this.twilioClient.makeCall(formattedNumber, callParams);
+                                DEBUG.log('Call initiated successfully');
+                                success = true;
+                            } catch (err) {
+                                retryCount++;
+                                
+                                // Check if it's a network-related error
+                                if (err.code === 31000 ||
+                                    (err.twilioError && err.twilioError.code === 53001)) {
+                                    
+                                    DEBUG.error(`Network error on attempt ${retryCount}. Retrying...`);
+                                    this.updateStatus(`Connection issue. Retrying (${retryCount}/${maxRetries})...`);
+                                    
+                                    // Wait before retry with exponential backoff
+                                    const delay = Math.min(1000 * Math.pow(2, retryCount), 8000);
+                                    await new Promise(resolve => setTimeout(resolve, delay));
+                                    
+                                    // Check if we need to reinitialize
+                                    if (!navigator.onLine) {
+                                        this.updateStatus('Waiting for network connection...');
+                                        // Wait for online event or timeout
+                                        await Promise.race([
+                                            new Promise(resolve => {
+                                                const onlineHandler = () => {
+                                                    window.removeEventListener('online', onlineHandler);
+                                                    resolve();
+                                                };
+                                                window.addEventListener('online', onlineHandler);
+                                            }),
+                                            new Promise(resolve => setTimeout(resolve, 10000))
+                                        ]);
+                                    }
+                                    
+                                    // Reinitialize device before retry
+                                    await this.reconnectDevice(cleanCallerId);
+                                } else {
+                                    // Not a network error, don't retry
+                                    throw err;
+                                }
+                            }
+                        }
+                        
+                        if (!success) {
+                            throw new Error(`Failed to connect after ${maxRetries} attempts. Please check your network.`);
+                        }
                     } catch (callError) {
                         DEBUG.error('Error in makeCall:', callError);
                         throw callError;
@@ -725,10 +1119,93 @@
                 this.inCallControls.style.display = 'block';
                 this.updateStatus('Connected');
                 
+                // Ensure device is marked as initialized
+                if (this.twilioClient) {
+                    this.twilioClient.isInitialized = true;
+                }
+                
                 // Start duration timer
                 this.durationInterval = setInterval(() => {
                     this.updateCallDuration();
                 }, 1000);
+                
+                // Create audio visualizer
+                this.createAudioVisualizer();
+                
+                // Start audio level monitoring
+                this.startAudioLevelMonitoring();
+                
+                // Add audio indicator
+                DEBUG.log('Call connected with audio streaming enabled');
+            }
+            
+            createAudioVisualizer() {
+                const container = document.getElementById('audio-visualizer');
+                if (!container) return;
+                
+                // Clear any existing bars
+                container.innerHTML = '';
+                
+                // Create 20 bars for the visualizer
+                for (let i = 0; i < 20; i++) {
+                    const bar = document.createElement('div');
+                    bar.className = 'visualizer-bar';
+                    bar.style.height = '5px'; // Default height
+                    container.appendChild(bar);
+                }
+            }
+            
+            startAudioLevelMonitoring() {
+                // Check if we have an active call
+                if (!this.twilioClient || !this.twilioClient.call) return;
+                
+                // Set up monitoring interval
+                this.audioMonitorInterval = setInterval(() => {
+                    if (!this.twilioClient || !this.twilioClient.call) {
+                        clearInterval(this.audioMonitorInterval);
+                        return;
+                    }
+                    
+                    // Try to get audio stats from the call
+                    if (this.twilioClient.call.getStats) {
+                        this.twilioClient.call.getStats()
+                            .then(stats => {
+                                if (stats && stats.audio && typeof stats.audio.outputLevel !== 'undefined') {
+                                    // Update visualizer with output level (incoming audio)
+                                    this.updateAudioVisualizer(stats.audio.outputLevel);
+                                }
+                            })
+                            .catch(err => {
+                                DEBUG.error('Error getting audio stats:', err);
+                            });
+                    }
+                }, 100); // Update every 100ms for smooth visualization
+            }
+            
+            updateAudioVisualizer(level) {
+                const container = document.getElementById('audio-visualizer');
+                if (!container) return;
+                
+                // Normalize level (Twilio returns values roughly between 0-32767)
+                // We'll use a logarithmic scale for better visualization
+                const normalizedLevel = level ? Math.log(level + 1) / Math.log(32768) : 0;
+                
+                // Get all bars
+                const bars = container.querySelectorAll('.visualizer-bar');
+                
+                // Create a random-ish but smooth pattern based on the audio level
+                bars.forEach((bar, index) => {
+                    // Create variation between bars
+                    const variation = 0.7 + Math.sin(Date.now() / 200 + index) * 0.3;
+                    
+                    // Calculate height based on level, variation, and position
+                    // Center bars are taller than edge bars
+                    const centerEffect = 1 - Math.abs(index - bars.length / 2) / (bars.length / 2) * 0.5;
+                    const height = Math.max(5, normalizedLevel * 35 * variation * centerEffect);
+                    
+                    // Apply height
+                    bar.style.height = `${height}px`;
+                });
             }
             
             handleCallDisconnected() {
@@ -744,6 +1221,21 @@
                 if (this.durationInterval) {
                     clearInterval(this.durationInterval);
                     this.durationInterval = null;
+                }
+                
+                // Clear audio monitoring
+                if (this.audioMonitorInterval) {
+                    clearInterval(this.audioMonitorInterval);
+                    this.audioMonitorInterval = null;
+                }
+                
+                // Reset visualizer
+                const container = document.getElementById('audio-visualizer');
+                if (container) {
+                    const bars = container.querySelectorAll('.visualizer-bar');
+                    bars.forEach(bar => {
+                        bar.style.height = '5px';
+                    });
                 }
                 
                 // Reset duration display

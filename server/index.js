@@ -18,9 +18,29 @@ app.use(cors({
   credentials: true,
 }));
 
-// Add logging middleware
+// Add detailed logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  
+  // For POST requests, log the body for debugging
+  if (req.method === 'POST' && (req.url.includes('/voice') || req.url.includes('/token'))) {
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+  }
+  
+  // Capture the original send method
+  const originalSend = res.send;
+  
+  // Override the send method to log responses
+  res.send = function(body) {
+    // Log TwiML responses for debugging
+    if (res.get('Content-Type') === 'text/xml' && body) {
+      console.log('TwiML Response:', body);
+    }
+    
+    // Call the original send method
+    return originalSend.call(this, body);
+  };
+  
   next();
 });
 
@@ -29,12 +49,12 @@ app.use(express.urlencoded({ extended: true }));
 
 // Create Twilio client
 const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID || 'AC1ca93006ce71b64875e83739904abd75',
-  process.env.TWILIO_AUTH_TOKEN || 'd3a025d142f7bf2dd173cb85c6c4e3b8'
+  process.env.TWILIO_ACCOUNT_SID || 'ACdc6f4502ffb46048711e6359792c08ee',
+  process.env.TWILIO_AUTH_TOKEN || 'aa2dc2152b1667712523b9df60babcf2'
 );
 
 // Log Twilio client initialization
-console.log(`Initializing Twilio client with Account SID: ${process.env.TWILIO_ACCOUNT_SID || 'AC1ca93006ce71b64875e83739904abd75'}`);
+console.log(`Initializing Twilio client with Account SID: ${process.env.TWILIO_ACCOUNT_SID || 'ACdc6f4502ffb46048711e6359792c08ee'}`);
 
 // Verify the Twilio client is working
 twilioClient.api.accounts(process.env.TWILIO_ACCOUNT_SID || 'AC1ca93006ce71b64875e83739904abd75')
@@ -112,9 +132,26 @@ app.post('/voice/incoming', (req, res) => {
 app.post('/voice/outgoing', (req, res) => {
   try {
     console.log('Outgoing voice call request received:', req.body);
+    
+    // Add diagnostic information
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Query params:', JSON.stringify(req.query, null, 2));
+    
+    // Check for required parameters
+    if (!req.body.To && !req.body.to && !req.query.to) {
+      console.error('Missing destination number in request');
+      const errorTwiml = new twilio.twiml.VoiceResponse();
+      errorTwiml.say('Error: Missing destination number');
+      res.type('text/xml');
+      return res.send(errorTwiml.toString());
+    }
+    
+    // Process the call with enhanced debugging
     const twiml = twimlHandler.handleOutgoingCall({
       ...req.body,
-      connectToBrowser: true // Flag to indicate this is a browser-initiated call
+      ...req.query, // Include query parameters
+      connectToBrowser: true, // Flag to indicate this is a browser-initiated call
+      debug: true // Enable extra debugging
     });
     
     console.log('Generated TwiML:', twiml.toString());
@@ -122,7 +159,11 @@ app.post('/voice/outgoing', (req, res) => {
     res.send(twiml.toString());
   } catch (error) {
     console.error('Error handling outgoing call:', error);
-    res.status(500).json({ error: error.message });
+    // Return a proper TwiML response even on error
+    const errorTwiml = new twilio.twiml.VoiceResponse();
+    errorTwiml.say(`Error processing call: ${error.message}`);
+    res.type('text/xml');
+    res.send(errorTwiml.toString());
   }
 });
 
