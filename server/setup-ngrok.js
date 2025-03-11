@@ -2,6 +2,7 @@
 const ngrok = require('ngrok');
 const fs = require('fs');
 const path = require('path');
+const twilio = require('twilio');
 require('dotenv').config();
 
 async function setupNgrok() {
@@ -31,13 +32,16 @@ async function setupNgrok() {
     fs.writeFileSync(envPath, envContent);
     console.log('✅ Updated .env with ngrok URL');
     
-    console.log('\n🔨 Next steps:');
-    console.log('1. Go to https://console.twilio.com/');
-    console.log('2. Navigate to Voice -> TwiML Apps');
-    console.log('3. Create a new TwiML App or edit existing one');
-    console.log('4. Set the Voice Request URL to:');
-    console.log(`   ${url}/voice/outgoing`);
-    console.log('5. Copy the TwiML App SID and add it to your .env file\n');
+    // Update all configuration files
+    console.log('Updating configuration files...');
+    try {
+      // Run the update-config.js script
+      require('./update-config');
+      console.log('✅ Configuration files updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating configuration files:', error);
+      console.log('Please update the configuration files manually');
+    }
     
     // Keep the script running
     console.log('Keeping ngrok tunnel alive. Press Ctrl+C to stop.');

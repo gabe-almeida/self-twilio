@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twilio Dialer - Agent Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <script src="https://sdk.twilio.com/js/client/releases/1.14.0/twilio.min.js"></script>
+    <style>
+        body {
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 48px 0 0;
+            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+            background-color: #f8f9fa;
+        }
+        .sidebar-sticky {
+            position: relative;
+            top: 0;
+            height: calc(100vh - 48px);
+            padding-top: .5rem;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        .navbar {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+        }
+        .nav-link {
+            color: #333;
+            font-weight: 500;
+        }
+        .nav-link.active {
+            color: #0d6efd;
+        }
+        .main-content {
+            margin-left: 240px;
+            padding: 20px;
+        }
+        .status-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .status-available {
+            background-color: #28a745;
+        }
+        .status-unavailable {
+            background-color: #dc3545;
+        }
+        .status-offline {
+            background-color: #6c757d;
+        }
+        .status-busy {
+            background-color: #ffc107;
+        }
+        .status-after-call {
+            background-color: #17a2b8;
+        }
+        .call-controls {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .dialer-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .dialer-btn {
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            transition: all 0.2s;
+        }
+        .dialer-btn:hover {
+            background-color: #e9ecef;
+        }
+        .dialer-btn:active {
+            background-color: #dee2e6;
+        }
+        .call-btn {
+            background-color: #28a745;
+            color: white;
+        }
+        .hangup-btn {
+            background-color: #dc3545;
+            color: white;
+            display: none;
+        }
+        .mute-btn {
+            background-color: #6c757d;
+            color: white;
+        }
+        .queue-item {
+            background-color: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s;
+        }
+        .queue-item:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .call-history-item {
+            background-color: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .audio-visualizer {
+            height: 40px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .visualizer-bar {
+            width: 4px;
+            height: 5px;
+            margin: 0 2px;
+            background-color: #0d6efd;
+            border-radius: 2px;
+            transition: height 0.1s ease;
+        }
+        .call-duration {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .section {
+            display: none;
+            margin-bottom: 30px;
+        }
+        .section.active {
+            display: block;
+        }
+        
+        /* Disposition UI styles */
+        .disposition-pending {
+            border: 2px solid #ffc107 !important;
+            position: relative;
+        }
+
+        .disposition-pending::after {
+            content: "⚠️";
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background-color: #ffc107;
+            color: #000;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .status-option.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        option[data-is-final="true"] {
+            font-weight: bold;
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Twilio Dialer</a>
+            <div class="d-flex align-items-center">
+                <div class="dropdown">
+                    <button class="btn btn-outline-light dropdown-toggle" type="button" id="statusDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span class="status-indicator status-offline" id="status-indicator"></span>
+                        <span id="status-text">Offline</span>
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="statusDropdown">
+                        <li><a class="dropdown-item status-option" data-status="Available" href="#"><span class="status-indicator status-available"></span> Available</a></li>
+                        <li><a class="dropdown-item status-option" data-status="Unavailable" href="#"><span class="status-indicator status-unavailable"></span> Unavailable</a></li>
+                        <li><a class="dropdown-item status-option" data-status="Busy" href="#"><span class="status-indicator status-busy"></span> Busy</a></li>
+                        <li><a class="dropdown-item status-option" data-status="After Call Work" href="#"><span class="status-indicator status-after-call"></span> After Call Work</a></li>
+                        <li><a class="dropdown-item status-option" data-status="Offline" href="#"><span class="status-indicator status-offline"></span> Offline</a></li>
+                    </ul>
+                </div>
+                <div class="dropdown ms-3">
+                    <button class="btn btn-outline-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle"></i> <span id="user-name">Agent</span>
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item" href="#" id="profile-link"><i class="bi bi-person"></i> Profile</a></li>
+                        <li><a class="dropdown-item" href="#" id="logout-link"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block sidebar">
+                <div class="position-sticky sidebar-sticky">
+                    <!-- Agent Status Widget Container -->
+                    <div id="agent-status-container" class="mb-4 px-3"></div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#" data-section="dialer-section">
+                                <i class="bi bi-telephone"></i> Dialer
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-section="queue-section">
+                                <i class="bi bi-list-ol"></i> Call Queue
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-section="history-section">
+                                <i class="bi bi-clock-history"></i> Call History
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2" id="section-title">Dialer</h1>
+                </div>
+
+                <!-- Dialer Section -->
+                <div id="dialer-section" class="section active">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Make a Call</h5>
+                                    <div class="mb-3">
+                                        <label for="phone-number" class="form-label">Phone Number</label>
+                                        <input type="tel" class="form-control" id="phone-number" placeholder="Enter phone number">
+                                    </div>
+                                    <div class="dialer-pad">
+                                        <div class="dialer-btn" data-value="1">1</div>
+                                        <div class="dialer-btn" data-value="2">2</div>
+                                        <div class="dialer-btn" data-value="3">3</div>
+                                        <div class="dialer-btn" data-value="4">4</div>
+                                        <div class="dialer-btn" data-value="5">5</div>
+                                        <div class="dialer-btn" data-value="6">6</div>
+                                        <div class="dialer-btn" data-value="7">7</div>
+                                        <div class="dialer-btn" data-value="8">8</div>
+                                        <div class="dialer-btn" data-value="9">9</div>
+                                        <div class="dialer-btn" data-value="*">*</div>
+                                        <div class="dialer-btn" data-value="0">0</div>
+                                        <div class="dialer-btn" data-value="#">#</div>
+                                    </div>
+                                    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-3">
+                                        <button class="btn btn-success btn-lg call-btn" id="call-btn">
+                                            <i class="bi bi-telephone-fill"></i> Call
+                                        </button>
+                                        <button class="btn btn-danger btn-lg hangup-btn" id="hangup-btn">
+                                            <i class="bi bi-telephone-x-fill"></i> Hang Up
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card call-controls" id="call-controls">
+                                <div class="card-body">
+                                    <h5 class="card-title">Call in Progress</h5>
+                                    <div class="call-duration" id="call-duration">00:00</div>
+                                    <div class="audio-visualizer" id="audio-visualizer">
+                                        <!-- Bars will be added dynamically -->
+                                    </div>
+                                    <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-3">
+                                        <button class="btn btn-secondary btn-lg mute-btn" id="mute-btn">
+                                            <i class="bi bi-mic-fill"></i> Mute
+                                        </button>
+                                        <button class="btn btn-info btn-lg" id="keypad-btn">
+                                            <i class="bi bi-grid-3x3-gap-fill"></i> Keypad
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card mt-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">Add to Queue</h5>
+                                    <div class="mb-3">
+                                        <label for="queue-phone" class="form-label">Phone Number</label>
+                                        <input type="tel" class="form-control" id="queue-phone" placeholder="Enter phone number">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="queue-name" class="form-label">Contact Name</label>
+                                        <input type="text" class="form-control" id="queue-name" placeholder="Enter contact name">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="queue-notes" class="form-label">Notes</label>
+                                        <textarea class="form-control" id="queue-notes" rows="2" placeholder="Enter notes"></textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="queue-priority" class="form-label">Priority</label>
+                                        <select class="form-select" id="queue-priority">
+                                            <option value="1">Normal</option>
+                                            <option value="2">High</option>
+                                            <option value="3">Urgent</option>
+                                        </select>
+                                    </div>
+                                    <div class="d-grid">
+                                        <button class="btn btn-primary" id="add-to-queue-btn">Add to Queue</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Queue Section -->
+                <div id="queue-section" class="section">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Call Queue</h5>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Phone Number</th>
+                                                    <th>Contact Name</th>
+                                                    <th>Priority</th>
+                                                    <th>Status</th>
+                                                    <th>Created</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="queue-table-body">
+                                                <!-- Queue items will be added here dynamically -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Section -->
+                <div id="history-section" class="section">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Call History</h5>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Phone Number</th>
+                                                    <th>Contact Name</th>
+                                                    <th>Direction</th>
+                                                    <th>Date/Time</th>
+                                                    <th>Duration</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="history-table-body">
+                                                <!-- History items will be added here dynamically -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/call-countdown.js"></script>
+    <script src="/js/agent-status.js"></script>
+    <script>
+        // Global variables
+        let device;
+        let currentCall;
+        let callStartTime;
+        let durationInterval;
+        let currentStatus = 'Offline';
+        let user;
+        let token;
+        let audioVisualizerInterval;
+        let callCountdown; // Countdown timer for outbound calls
+
+        // DOM elements
+        const phoneNumberInput = document.getElementById('phone-number');
+        const callBtn = document.getElementById('call-btn');
+        const hangupBtn = document.getElementById('hangup-btn');
+        const muteBtn = document.getElementById('mute-btn');
+        const callControls = document.getElementById('call-controls');
+        const callDuration = document.getElementById('call-duration');
+        const audioVisualizer = document.getElementById('audio-visualizer');
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+        const userNameElement = document.getElementById('user-name');
+        const addToQueueBtn = document.getElementById('add-to-queue-btn');
+        const queueTableBody = document.getElementById('queue-table-body');
+        const historyTableBody = document.getElementById('history-table-body');
+        const navLinks = document.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('.section');
+        const sectionTitle = document.getElementById('section-title');
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Check if user is logged in
+            token = localStorage.getItem('token');
+            const userJson = localStorage.getItem('user');
+            
+            if (!token || !userJson) {
+                // Redirect to login page if not logged in
+                window.location.href = '/login.html';
+                return;
+            }
+            
+            try {
+                user = JSON.parse(userJson);
+                userNameElement.textContent = user.full_name || user.username;
+                
+                // Initialize Twilio device
+                await initializeTwilio();
+                
+                // Set up event listeners
+                setupEventListeners();
+                
+                // Load initial data
+                loadQueueData();
+                loadHistoryData();
+                
+                // Create audio visualizer
+                createAudioVisualizer();
+                
+                // Initialize call countdown
+                callCountdown = new CallCountdown({
+                    duration: 5, // 5 second countdown
+                    onComplete: (callData) => {
+                        // When countdown completes, make the call
+                        phoneNumberInput.value = callData.phoneNumber;
+                        makeCall();
+                    },
+                    onSkip: (callData) => {
+                        // When countdown is skipped, make the call immediately
+                        phoneNumberInput.value = callData.phoneNumber;
+                        makeCall();
+                    },
+                    onCancel: () => {
+                        // When countdown is cancelled, do nothing
+                        console.log('Call cancelled by agent');
+                    }
+                });
+                
+                // Get agent status
+                await getAgentStatus();
+            } catch (error) {
+                console.error('Error initializing application:', error);
+                alert('Error initializing application. Please try logging in again.');
+            }
+        });
+
+        // Initialize Twilio device
+        async function initializeTwilio() {
+            try {
+                // Get token from server
+                const response = await fetch('/voice/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get Twilio token');
+                }
+                
+                const data = await response.json();
+                
+                // Initialize Twilio device
+                device = new Twilio.Device(data.token, {
+                    logLevel: 'info',
+                    codecPreferences: ['opus', 'pcmu'],
+                    fakeLocalDTMF: true,
+                    enableRingingState: true
+                });
+                
+                // Set up device event listeners
+                device.on('ready', () => {
+                    console.log('Twilio device ready');
+                });
+                
+                device.on('error', (error) => {
+                    console.error('Twilio device error:', error);
+                    alert(`Twilio device error: ${error.message}`);
+                });
+                
+                device.on('incoming', (call) => {
+                    console.log('Incoming call');
+                    handleIncomingCall(call);
+                });
+                
+                console.log('Twilio device initialized');
+            } catch (error) {
+                console.error('Error initializing Twilio:', error);
+                throw error;
+            }
+        }
+
+        // Set up event listeners
+        function setupEventListeners() {
+            // Dialer pad buttons
+            document.querySelectorAll('.dialer-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const value = button.getAttribute('data-value');
+                    phoneNumberInput.value += value;
+                });
+            });
+            
+            // Call button
+            callBtn.addEventListener('click', () => {
+                makeCall();
+            });
+            
+            // Hangup button
+            hangupBtn.addEventListener('click', () => {
+                endCall();
+            });
+            
+            // Mute button
+            muteBtn.addEventListener('click', () => {
+                toggleMute();
+            });
+            
+            // Status options
+            document.querySelectorAll('.status-option').forEach(option => {
+                option.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const status = option.getAttribute('data-status');
+                    updateAgentStatus(status);
+                });
+            });
+            
+            // Logout link
+            document.getElementById('logout-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                logout();
+            });
+            
+            // Add to queue button
+            addToQueueBtn.addEventListener('click', () => {
+                addToQueue();
+            });
+            
+            // Save disposition button
+            document.getElementById('save-disposition-btn').addEventListener('click', () => {
+                saveCallDisposition();
+            });
+            
+            // Navigation links
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    // Remove active class from all links and sections
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    sections.forEach(s => s.classList.remove('active'));
+                    
+                    // Add active class to clicked link
+                    link.classList.add('active');
+                    
+                    // Show corresponding section
+                    const sectionId = link.getAttribute('data-section');
+                    document.getElementById(sectionId).classList.add('active');
+                    
+                    // Update section title
+                    sectionTitle.textContent = link.textContent.trim();
+                });
+            });
+        }
+
+        // Make a call
+        async function makeCall() {
+            const phoneNumber = phoneNumberInput.value.trim();
+            
+            if (!phoneNumber) {
+                alert('Please enter a phone number');
+                return;
+            }
+            
+            try {
+                // Check if agent is available
+                if (currentStatus !== 'Available') {
+                    const confirm = window.confirm('You are not set as Available. Set status to Available and make the call?');
+                    if (confirm) {
+                        await updateAgentStatus('Available');
+                    } else {
+                        return;
+                    }
+                }
+                
+                // Format phone number if needed
+                let formattedNumber = phoneNumber;
+                if (!formattedNumber.startsWith('+') && formattedNumber.replace(/\D/g, '').length === 10) {
+                    formattedNumber = `+1${formattedNumber.replace(/\D/g, '')}`;
+                }
+                // Make the call
+                const params = {
+                    To: formattedNumber  // Use uppercase 'To' to match Twilio's expected parameter name
+                };
+                
+                console.log('Making call with params:', JSON.stringify(params));
+                
+                // IMPORTANT: Pass parameters directly, not nested in a params object
+                // This ensures they're properly passed to the TwiML app
+                currentCall = await device.connect(params);
+                
+                // Set up call event listeners
+                setupCallListeners();
+                
+                // Update UI
+                callBtn.style.display = 'none';
+                hangupBtn.style.display = 'block';
+                callControls.style.display = 'block';
+                
+                // Start call timer
+                callStartTime = new Date();
+                durationInterval = setInterval(updateCallDuration, 1000);
+                
+                // Start audio level monitoring
+                startAudioLevelMonitoring();
+            } catch (error) {
+                console.error('Error making call:', error);
+                alert(`Error making call: ${error.message}`);
+            }
+        }
+
+        // Set up call event listeners
+        function setupCallListeners() {
+            if (!currentCall) return;
+            
+            currentCall.on('accept', () => {
+                console.log('Call accepted');
+            });
+            
+            currentCall.on('disconnect', () => {
+                console.log('Call disconnected');
+                handleCallEnded();
+            });
+            
+            currentCall.on('error', (error) => {
+                console.error('Call error:', error);
+                alert(`Call error: ${error.message}`);
+                handleCallEnded();
+            });
+        }
+
+        // Handle incoming call
+        function handleIncomingCall(call) {
+            // Get call parameters
+            const from = call.parameters.From || '';
+            const contactCenterId = call.parameters.contactCenterId || '';
+            const contactCenterName = call.parameters.contactCenterName || '';
+            
+            // Create a more informative message for the user
+            let message = `Incoming call from ${from}`;
+            if (contactCenterId) {
+                message += `\nThis call is from the "${contactCenterName || 'Contact Center'}"`;
+            }
+            message += '\n\nAnswer this call?';
+            
+            // Show confirmation dialog
+            const confirm = window.confirm(message);
+            
+            if (confirm) {
+                currentCall = call;
+                
+                // Set up call event listeners
+                setupCallListeners();
+                
+                // Accept the call
+                call.accept();
+                
+                // Update UI
+                callBtn.style.display = 'none';
+                hangupBtn.style.display = 'block';
+                callControls.style.display = 'block';
+                
+                // Update call controls title to show contact center info if available
+                const callControlsTitle = document.querySelector('#call-controls .card-title');
+                if (contactCenterId) {
+                    callControlsTitle.innerHTML = `Call in Progress <span class="badge bg-info ms-2">${contactCenterName || 'Contact Center'}</span>`;
+                } else {
+                    callControlsTitle.textContent = 'Call in Progress';
+                }
+                
+                // Start call timer
+                callStartTime = new Date();
+                durationInterval = setInterval(updateCallDuration, 1000);
+                
+                // Start audio level monitoring
+                startAudioLevelMonitoring();
+                
+                // Update agent status
+                updateAgentStatus('Busy');
+            } else {
+                // Reject the call
+                call.reject();
+            }
+        }
+
+        // End the current call
+        function endCall() {
+            if (currentCall) {
+                currentCall.disconnect();
+            }
+        }
+
+        // Handle call ended
+        function handleCallEnded() {
+            // Update UI
+            callBtn.style.display = 'block';
+            hangupBtn.style.display = 'none';
+            callControls.style.display = 'none';
+            
+            // Stop call timer
+            clearInterval(durationInterval);
+            callDuration.textContent = '00:00';
+            
+            // Stop audio level monitoring
+            clearInterval(audioVisualizerInterval);
+            resetAudioVisualizer();
+            
+            // Reset mute button
+            muteBtn.innerHTML = '<i class="bi bi-mic-fill"></i> Mute';
+            muteBtn.classList.remove('btn-danger');
+            muteBtn.classList.add('btn-secondary');
+            
+            // Get call ID from current call
+            const callId = currentCall ? currentCall.parameters.CallSid : null;
+            
+            // Clear current call
+            currentCall = null;
+            
+            // Update agent status to After Call Work and mark disposition as pending
+            updateAgentStatus('After Call Work', true);
+            
+            // Disable status change until disposition is selected
+            disableStatusChange();
+            
+            // Show disposition modal if we have a call ID
+            if (callId) {
+                showDispositionModal(callId);
+            }
+            
+            // Refresh call history
+            setTimeout(() => {
+                loadHistoryData();
+            }, 2000);
+        }
+
+        // Toggle mute
+        function toggleMute() {
+            if (!currentCall) return;
+            
+            if (currentCall.isMuted()) {
+                currentCall.mute(false);
+                muteBtn.innerHTML = '<i class="bi bi-mic-fill"></i> Mute';
+                muteBtn.classList.remove('btn-danger');
+                muteBtn.classList.add('btn-secondary');
+            } else {
+                currentCall.mute(true);
+                muteBtn.innerHTML = '<i class="bi bi-mic-mute-fill"></i> Unmute';
+                muteBtn.classList.remove('btn-secondary');
+                muteBtn.classList.add('btn-danger');
+            }
+        }
+
+        // Update call duration
+        function updateCallDuration() {
+            if (!callStartTime) return;
+            
+            const now = new Date();
+            const diff = Math.floor((now - callStartTime) / 1000);
+            
+            const minutes = Math.floor(diff / 60).toString().padStart(2, '0');
+            const seconds = (diff % 60).toString().padStart(2, '0');
+            
+            callDuration.textContent = `${minutes}:${seconds}`;
+        }
+
+        // Create audio visualizer
+        function createAudioVisualizer() {
+            // Clear any existing bars
+            audioVisualizer.innerHTML = '';
+            
+            // Create 20 bars for the visualizer
+            for (let i = 0; i < 20; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'visualizer-bar';
+                bar.style.height = '5px'; // Default height
+                audioVisualizer.appendChild(bar);
+            }
+        }
+
+        // Reset audio visualizer
+        function resetAudioVisualizer() {
+            const bars = audioVisualizer.querySelectorAll('.visualizer-bar');
+            bars.forEach(bar => {
+                bar.style.height = '5px';
+            });
+        }
+
+        // Start audio level monitoring
+        function startAudioLevelMonitoring() {
+            // Clear any existing interval
+            if (audioVisualizerInterval) {
+                clearInterval(audioVisualizerInterval);
+            }
+            
+            // Set up monitoring interval
+            audioVisualizerInterval = setInterval(() => {
+                if (!currentCall) {
+                    clearInterval(audioVisualizerInterval);
+                    resetAudioVisualizer();
+                    return;
+                }
+                
+                // Generate random audio levels for demo purposes
+                // In a real implementation, you would get actual audio levels from the call
+                const level = Math.random() * 32767;
+                updateAudioVisualizer(level);
+            }, 100);
+        }
+
+        // Update audio visualizer
+        function updateAudioVisualizer(level) {
+            // Normalize level (Twilio returns values roughly between 0-32767)
+            // We'll use a logarithmic scale for better visualization
+            const normalizedLevel = level ? Math.log(level + 1) / Math.log(32768) : 0;
+            
+            // Get all bars
+            const bars = audioVisualizer.querySelectorAll('.visualizer-bar');
+            
+            // Create a random-ish but smooth pattern based on the audio level
+            bars.forEach((bar, index) => {
+                // Create variation between bars
+                const variation = 0.7 + Math.sin(Date.now() / 200 + index) * 0.3;
+                
+                // Calculate height based on level, variation, and position
+                // Center bars are taller than edge bars
+                const centerEffect = 1 - Math.abs(index - bars.length / 2) / (bars.length / 2) * 0.5;
+                const height = Math.max(5, normalizedLevel * 35 * variation * centerEffect);
+                
+                // Apply height
+                bar.style.height = `${height}px`;
+            });
+        }
+
+        // Get agent status
+        async function getAgentStatus() {
+            try {
+                const response = await fetch('/api/agent-status', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get agent status');
+                }
+                
+                const data = await response.json();
+                
+                // Find current user's status
+                const userStatus = data.statuses.find(status => status.user_id === user.id);
+                
+                if (userStatus) {
+                    updateStatusUI(userStatus.status);
+                    currentStatus = userStatus.status;
+                }
+            } catch (error) {
+                console.error('Error getting agent status:', error);
+            }
+        }
+
+        // Update agent status
+        async function updateAgentStatus(status, dispositionPending = false) {
+            try {
+                const response = await fetch('/api/agent-status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        status,
+                        disposition_pending: dispositionPending
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to update agent status');
+                }
+                
+                // Update UI
+                updateStatusUI(status);
+                currentStatus = status;
+                
+                // Update disposition pending UI if needed
+                if (dispositionPending) {
+                    const statusDropdown = document.getElementById('statusDropdown');
+                    statusDropdown.classList.add('disposition-pending');
+                    statusDropdown.setAttribute('title', 'Please select a call disposition first');
+                } else {
+                    const statusDropdown = document.getElementById('statusDropdown');
+                    statusDropdown.classList.remove('disposition-pending');
+                    statusDropdown.removeAttribute('title');
+                }
+            } catch (error) {
+                console.error('Error updating agent status:', error);
+                alert(`Error updating status: ${error.message}`);
+            }
+        }
+
+        // Update status UI
+        function updateStatusUI(status) {
+            statusText.textContent = status;
+            
+            // Remove all status classes
+            statusIndicator.classList.remove('status-available', 'status-unavailable', 'status-offline', 'status-busy', 'status-after-call');
+            
+            // Add appropriate class
+            switch (status) {
+                case 'Available':
+                    statusIndicator.classList.add('status-available');
+                    break;
+                case 'Unavailable':
+                    statusIndicator.classList.add('status-unavailable');
+                    break;
+                case 'Busy':
+                    statusIndicator.classList.add('status-busy');
+                    break;
+                case 'After Call Work':
+                    statusIndicator.classList.add('status-after-call');
+                    break;
+                default:
+                    statusIndicator.classList.add('status-offline');
+            }
+        }
+        
+        // Disable status change
+        function disableStatusChange() {
+            // Disable status options except After Call Work
+            document.querySelectorAll('.status-option').forEach(option => {
+                if (option.getAttribute('data-status') !== 'After Call Work') {
+                    option.classList.add('disabled');
+                    option.style.pointerEvents = 'none';
+                }
+            });
+        }
+        
+        // Enable status change
+        function enableStatusChange() {
+            // Remove visual indicator
+            const statusDropdown = document.getElementById('statusDropdown');
+            statusDropdown.classList.remove('disposition-pending');
+            statusDropdown.removeAttribute('title');
+            
+            // Enable all status options
+            document.querySelectorAll('.status-option').forEach(option => {
+                option.classList.remove('disabled');
+                option.style.pointerEvents = 'auto';
+            });
+        }
+        
+        // Fetch active dispositions
+        async function loadActiveDispositions() {
+            try {
+                const response = await fetch('/api/dispositions/active', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get active dispositions');
+                }
+                
+                const data = await response.json();
+                return data.dispositions;
+            } catch (error) {
+                console.error('Error loading dispositions:', error);
+                return [];
+            }
+        }
+        
+        // Show disposition modal after call ends
+        function showDispositionModal(callId) {
+            // Set the call ID in the hidden field
+            document.getElementById('disposition-call-id').value = callId;
+            
+            // Load dispositions into the select dropdown
+            loadActiveDispositions().then(dispositions => {
+                const select = document.getElementById('disposition-select');
+                select.innerHTML = '<option value="">Select a disposition</option>';
+                
+                dispositions.forEach(disposition => {
+                    const option = document.createElement('option');
+                    option.value = disposition.id;
+                    option.textContent = disposition.name;
+                    option.dataset.isFinal = disposition.is_final;
+                    select.appendChild(option);
+                });
+                
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('dispositionModal'));
+                modal.show();
+            });
+        }
+        
+        // Save disposition
+        async function saveCallDisposition() {
+            const callId = document.getElementById('disposition-call-id').value;
+            const dispositionId = document.getElementById('disposition-select').value;
+            const notes = document.getElementById('disposition-notes').value;
+            
+            if (!dispositionId) {
+                alert('Please select a disposition');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/call-history/${callId}/disposition`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        disposition_id: dispositionId,
+                        notes: notes
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to save disposition');
+                }
+                
+                // Close the modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('dispositionModal'));
+                modal.hide();
+                
+                // Now the agent can return to Available status
+                enableStatusChange();
+                
+                // Refresh call history
+                loadHistoryData();
+            } catch (error) {
+                console.error('Error saving disposition:', error);
+                alert(`Error saving disposition: ${error.message}`);
+            }
+        }
+
+        // Add to queue
+        async function addToQueue() {
+            const phoneNumber = document.getElementById('queue-phone').value.trim();
+            const contactName = document.getElementById('queue-name').value.trim();
+            const notes = document.getElementById('queue-notes').value.trim();
+            const priority = document.getElementById('queue-priority').value;
+            
+            if (!phoneNumber) {
+                alert('Please enter a phone number');
+                return;
+            }
+            
+            try {
+                // Format phone number if needed
+                let formattedNumber = phoneNumber;
+                if (!formattedNumber.startsWith('+') && formattedNumber.replace(/\D/g, '').length === 10) {
+                    formattedNumber = `+1${formattedNumber.replace(/\D/g, '')}`;
+                }
+                
+                const response = await fetch('/api/call-queue', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        phone_number: formattedNumber,
+                        contact_name: contactName,
+                        notes,
+                        priority: parseInt(priority)
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to add call to queue');
+                }
+                
+                // Clear form
+                document.getElementById('queue-phone').value = '';
+                document.getElementById('queue-name').value = '';
+                document.getElementById('queue-notes').value = '';
+                document.getElementById('queue-priority').value = '1';
+                
+                // Refresh queue data
+                loadQueueData();
+                
+                alert('Call added to queue successfully');
+            } catch (error) {
+                console.error('Error adding call to queue:', error);
+                alert(`Error adding call to queue: ${error.message}`);
+            }
+        }
+
+        // Load queue data
+        async function loadQueueData() {
+            try {
+                const response = await fetch('/api/call-queue', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get call queue');
+                }
+                
+                const data = await response.json();
+                
+                // Clear table
+                queueTableBody.innerHTML = '';
+                
+                // Add queue items to table
+                data.calls.forEach(call => {
+                    const row = document.createElement('tr');
+                    
+                    // Format date
+                    const date = new Date(call.created_at);
+                    const formattedDate = date.toLocaleString();
+                    
+                    // Format priority
+                    let priorityText = 'Normal';
+                    let priorityClass = 'text-primary';
+                    
+                    if (call.priority === 2) {
+                        priorityText = 'High';
+                        priorityClass = 'text-warning';
+                    } else if (call.priority === 3) {
+                        priorityText = 'Urgent';
+                        priorityClass = 'text-danger';
+                    }
+                    
+                    row.innerHTML = `
+                        <td>${call.phone_number}</td>
+                        <td>${call.contact_name || '-'}</td>
+                        <td><span class="${priorityClass}">${priorityText}</span></td>
+                        <td>${call.status}</td>
+                        <td>${formattedDate}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary call-now-btn" data-id="${call.id}" data-phone="${call.phone_number}">
+                                <i class="bi bi-telephone-fill"></i> Call Now
+                            </button>
+                        </td>
+                    `;
+                    
+                    queueTableBody.appendChild(row);
+                });
+                
+                // Add event listeners to call now buttons
+                document.querySelectorAll('.call-now-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const id = button.getAttribute('data-id');
+                        const phone = button.getAttribute('data-phone');
+                        callFromQueue(id, phone);
+                    });
+                });
+            } catch (error) {
+                console.error('Error loading queue data:', error);
+            }
+        }
+
+        // Call from queue
+        async function callFromQueue(id, phone) {
+            // Switch to dialer tab
+            document.querySelector('.nav-link[data-section="dialer-section"]').click();
+            
+            try {
+                // Get call details from the queue
+                const response = await fetch(`/api/call-queue/${id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get call details');
+                }
+                
+                const callData = await response.json();
+                
+                // Start countdown before making the call
+                callCountdown.start({
+                    phoneNumber: phone,
+                    contactName: callData.contact_name || '',
+                    notes: callData.notes || '',
+                    id: id
+                });
+                
+                // Note: When the countdown completes, it will call makeCall(),
+                // which now uses the correct uppercase 'To' parameter
+                
+                // Note: The actual call will be initiated by the countdown
+                // when it completes or when the user clicks "Call Now"
+            } catch (error) {
+                console.error('Error getting call details:', error);
+                
+                // Fallback to basic call if we can't get details
+                phoneNumberInput.value = phone;
+                makeCall();
+            }
+        }
+
+        // Load history data
+        async function loadHistoryData() {
+            try {
+                const response = await fetch('/api/call-history', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get call history');
+                }
+                
+                const data = await response.json();
+                
+                // Clear table
+                historyTableBody.innerHTML = '';
+                
+                // Add history items to table
+                data.history.forEach(call => {
+                    const row = document.createElement('tr');
+                    
+                    // Format date
+                    const date = new Date(call.start_time);
+                    const formattedDate = date.toLocaleString();
+                    
+                    // Format duration
+                    let formattedDuration = '-';
+                    if (call.duration) {
+                        const minutes = Math.floor(call.duration / 60).toString().padStart(2, '0');
+                        const seconds = (call.duration % 60).toString().padStart(2, '0');
+                        formattedDuration = `${minutes}:${seconds}`;
+                    }
+                    
+                    // Format direction
+                    const directionIcon = call.direction === 'outbound' ? 
+                        '<i class="bi bi-arrow-up-right text-success"></i>' : 
+                        '<i class="bi bi-arrow-down-left text-primary"></i>';
+                    
+                    row.innerHTML = `
+                        <td>${call.phone_number}</td>
+                        <td>${call.contact_name || '-'}</td>
+                        <td>${directionIcon} ${call.direction}</td>
+                        <td>${formattedDate}</td>
+                        <td>${formattedDuration}</td>
+                        <td>${call.call_status || '-'}</td>
+                    `;
+                    
+                    historyTableBody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading history data:', error);
+            }
+        }
+
+        // Logout
+        function logout() {
+            // Clear local storage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Redirect to login page
+            window.location.href = '/login.html';
+        }
+    </script>
+    
+    <!-- Disposition Modal -->
+    <div class="modal fade" id="dispositionModal" tabindex="-1" aria-labelledby="dispositionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="dispositionModalLabel">Call Disposition</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="disposition-form">
+                        <input type="hidden" id="disposition-call-id">
+                        <div class="mb-3">
+                            <label for="disposition-select" class="form-label">Disposition</label>
+                            <select class="form-select" id="disposition-select" required>
+                                <option value="">Select a disposition</option>
+                                <!-- Dispositions will be added here dynamically -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="disposition-notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="disposition-notes" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="save-disposition-btn">Save Disposition</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -21,10 +21,25 @@ chrome.runtime.onInstalled.addListener((details) => {
       selectedCallerId: '+19788785223',
     });
     
-    // Show the onboarding page
-    chrome.tabs.create({
-      url: 'http://localhost:3000/onboarding',
-    });
+    // Load configuration
+    fetch(chrome.runtime.getURL('config/config.json'))
+      .then(response => response.json())
+      .then(config => {
+        // Store config in global variable for access from other parts of the extension
+        window.CONFIG = config;
+        
+        // Show the onboarding page
+        chrome.tabs.create({
+          url: `${config.SERVER_URL}/onboarding`,
+        });
+      })
+      .catch(error => {
+        console.error('Error loading configuration:', error);
+        // Fallback to a default URL if config can't be loaded
+        chrome.tabs.create({
+          url: 'http://localhost:3000/onboarding',
+        });
+      });
   }
 });
 

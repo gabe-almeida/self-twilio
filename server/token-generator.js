@@ -1,5 +1,6 @@
 // Token generator for Twilio Dialer server
 const twilio = require('twilio');
+const config = require('./config');
 
 /**
  * Generate a Twilio access token for client authentication
@@ -8,8 +9,8 @@ const twilio = require('twilio');
  * @returns {string} - The access token
  */
 function generateToken(twilioClient, callerId) {
-  // Use the default caller ID from environment variables if not provided
-  const defaultCallerId = process.env.DEFAULT_CALLER_ID || '+19788785223';
+  // Use the default caller ID from configuration if not provided
+  const defaultCallerId = config.DEFAULT_CALLER_ID;
   callerId = callerId || defaultCallerId;
   
   // Clean the caller ID to ensure it's properly formatted
@@ -18,10 +19,10 @@ function generateToken(twilioClient, callerId) {
   console.log('Generating token with caller ID:', callerId);
   
   // Use API Key and Secret for better security
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const apiKey = process.env.TWILIO_API_KEY;
-  const apiSecret = process.env.TWILIO_API_SECRET;
-  const twimlAppSid = process.env.TWILIO_TWIML_APP_SID;
+  const accountSid = config.TWILIO.ACCOUNT_SID;
+  const apiKey = config.TWILIO.API_KEY;
+  const apiSecret = config.TWILIO.API_SECRET;
+  const twimlAppSid = config.TWILIO.TWIML_APP_SID;
   
   // Validate required credentials
   if (!accountSid || !apiKey || !apiSecret) {
@@ -56,24 +57,32 @@ function generateToken(twilioClient, callerId) {
     }
     
     // Get the server URL for endpoints
-    const serverBaseUrl = process.env.SERVER_BASE_URL || 'http://localhost:3000';
-    console.log('Server base URL:', serverBaseUrl);
+    const serverBaseUrl = config.SERVER_BASE_URL;
     
     // Configure voice grant with all necessary parameters
+    console.log('==================== TOKEN GENERATOR ====================');
+    console.log('Timestamp:', new Date().toISOString());
     console.log('Configuring voice grant with TwiML App SID:', twimlAppSid);
+    
+    // Log server base URL
+    console.log('Server base URL for outgoing calls:', serverBaseUrl);
+    
     voiceGrant.outgoingApplicationParams = {
       // These params will be passed to the TwiML app
       callerId: callerId,
       applicationSid: twimlAppSid
     };
     
-    // Log voice grant configuration
-    console.log('Voice grant configuration:', {
-      outgoingApplicationSid: twimlAppSid,
-      incomingAllow: true,
-      outgoingAllow: true,
-      params: voiceGrant.outgoingApplicationParams
-    });
+    // Log voice grant configuration in detail
+    console.log('Voice grant configuration:');
+    console.log('- outgoingApplicationSid:', twimlAppSid);
+    console.log('- incomingAllow:', true);
+    console.log('- outgoingAllow:', true);
+    console.log('- outgoingApplicationParams:', JSON.stringify(voiceGrant.outgoingApplicationParams, null, 2));
+    
+    // Log the TwiML app URL that will be used for outgoing calls
+    console.log('Expected TwiML app URL for outgoing calls:', `${serverBaseUrl}/voice/outgoing`);
+    console.log('Make sure this URL is configured in your TwiML app in the Twilio console');
     
     // Add the voice grant to the access token
     accessToken.addGrant(voiceGrant);

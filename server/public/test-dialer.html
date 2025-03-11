@@ -168,6 +168,7 @@
     </div>
 
     <script src="https://sdk.twilio.com/js/client/releases/1.14.0/twilio.min.js"></script>
+    <script src="/js/config.js"></script>
     <script>
         // Debug utilities
         const DEBUG = {
@@ -227,7 +228,7 @@
                 DEBUG.log(`Getting token with caller ID: ${callerId}`);
                 
                 try {
-                    const response = await fetch(`${this.serverUrl}/token`, {
+                    const response = await fetch(`${this.serverUrl}/voice/token`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -360,7 +361,7 @@
                         throw new Error('Device not initialized');
                     }
                     
-                    // Merge parameters
+                    // Merge parameters - use uppercase 'To' to match Twilio's expected parameter name
                     const callParams = {
                         To: number,
                         ...params
@@ -368,8 +369,36 @@
                     
                     DEBUG.log('Call params:', callParams);
                     
+                    // Add detailed logging for debugging
+                    DEBUG.log('==================== TEST DIALER: MAKING CALL ====================');
+                    DEBUG.log('Timestamp:', new Date().toISOString());
+                    DEBUG.log('Destination number:', number);
+                    DEBUG.log('Call parameters:', JSON.stringify(callParams, null, 2));
+                    DEBUG.log('Params structure:', JSON.stringify({ params: callParams }, null, 2));
+                    DEBUG.log('Server URL:', CONFIG.SERVER_URL);
+                    
+                    // Log the call parameters
+                    DEBUG.log('Call parameters before connect:', JSON.stringify(callParams, null, 2));
+                    
                     // Make the call
+                    DEBUG.log('Connecting with device.connect() and params directly');
+                    
+                    // IMPORTANT: We need to pass the parameters directly, not nested in a params object
+                    // This ensures they're properly passed to the TwiML app
                     this.call = this.device.connect(callParams);
+                    
+                    // Alternative approach with explicit to/from parameters
+                    // this.call = this.device.connect({
+                    //     To: number,
+                    //     From: params.from || '+19788785223'
+                    // });
+                    
+                    // Log the call object
+                    DEBUG.log('Call object created:', this.call ? 'success' : 'failed');
+                    if (this.call) {
+                        DEBUG.log('Call parameters:', this.call.parameters);
+                        DEBUG.log('Call options:', this.call.options);
+                    }
                     
                     // Set up call listeners
                     this.setupCallListeners();
@@ -460,7 +489,7 @@
                 this.selectedCallerId = '+19788785223';
                 
                 // API and Client
-                this.api = new TwilioAPI('http://localhost:3000');
+                this.api = new TwilioAPI(CONFIG.SERVER_URL);
                 this.twilioClient = new TwilioVoiceClient();
                 
                 // Initialize
@@ -609,8 +638,8 @@
                     DEBUG.log(`Making call to ${formattedNumber}`);
                     
                     const callParams = {
-                        To: formattedNumber,
-                        From: this.selectedCallerId
+                        To: formattedNumber,  // Use uppercase 'To' to match Twilio's expected parameter name
+                        From: this.selectedCallerId  // Use uppercase 'From' to match Twilio's expected parameter name
                     };
                     
                     await this.twilioClient.makeCall(formattedNumber, callParams);

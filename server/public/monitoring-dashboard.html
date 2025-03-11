@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Twilio Dialer - Monitoring Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      padding-top: 20px;
+      background-color: #f8f9fa;
+    }
+    .card {
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .card-header {
+      font-weight: bold;
+      background-color: #f1f1f1;
+    }
+    .metric-value {
+      font-size: 2rem;
+      font-weight: bold;
+    }
+    .metric-label {
+      font-size: 0.9rem;
+      color: #6c757d;
+    }
+    .alert-badge {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      padding: 5px 10px;
+      border-radius: 50%;
+      background-color: #dc3545;
+      color: white;
+      font-weight: bold;
+    }
+    .table-responsive {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .nav-tabs .nav-link.active {
+      font-weight: bold;
+    }
+    .chart-container {
+      position: relative;
+      height: 300px;
+      width: 100%;
+    }
+    .status-available {
+      color: #28a745;
+    }
+    .status-unavailable {
+      color: #dc3545;
+    }
+    .status-after-call-work {
+      color: #ffc107;
+    }
+    .refresh-btn {
+      margin-right: 10px;
+    }
+    .alert-item {
+      border-left: 4px solid #dc3545;
+      padding-left: 10px;
+      margin-bottom: 10px;
+    }
+    .alert-item.acknowledged {
+      border-left-color: #6c757d;
+      opacity: 0.7;
+    }
+    .alert-timestamp {
+      font-size: 0.8rem;
+      color: #6c757d;
+    }
+    .alert-count {
+      background-color: #dc3545;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      margin-left: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="d-flex justify-content-between align-items-center mb-4">
+      <h1>Monitoring Dashboard</h1>
+      <div>
+        <button id="refreshBtn" class="btn btn-primary refresh-btn">
+          <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+        <button id="logMetricsBtn" class="btn btn-secondary">
+          Log Metrics
+        </button>
+      </div>
+    </header>
+
+    <div class="row mb-4">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>System Overview</span>
+            <span id="lastUpdated" class="text-muted small"></span>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-3 text-center">
+                <div class="metric-value" id="callsProcessed">0</div>
+                <div class="metric-label">Calls Processed</div>
+              </div>
+              <div class="col-md-3 text-center">
+                <div class="metric-value" id="callsPerMinute">0</div>
+                <div class="metric-label">Calls Per Minute</div>
+              </div>
+              <div class="col-md-3 text-center">
+                <div class="metric-value" id="successRate">0%</div>
+                <div class="metric-label">Success Rate</div>
+              </div>
+              <div class="col-md-3 text-center">
+                <div class="metric-value" id="avgCallDuration">0s</div>
+                <div class="metric-label">Avg Call Duration</div>
+              </div>
+            </div>
+            <div class="row mt-4">
+              <div class="col-md-3 text-center">
+                <div class="metric-value" id="agentsAvailable">0</div>
+                <div class="metric-label">Agents Available</div>
+              </div>
+              <div class="col-md-3 text-center">
+                <div class="metric-value" id="queuedCalls">0</div>
+                <div class="metric-label">Queued Calls</div>
+              </div>
+              <div class="col-md-3 text-center">
+                <div class="metric-value" id="avgWaitTime">0s</div>
+                <div class="metric-label">Avg Wait Time</div>
+              </div>
+              <div class="col-md-3 text-center">
+                <div class="metric-value" id="uptime">0h</div>
+                <div class="metric-label">System Uptime</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-8">
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="agents-tab" data-bs-toggle="tab" data-bs-target="#agents" type="button" role="tab" aria-controls="agents" aria-selected="true">Agents</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="charts-tab" data-bs-toggle="tab" data-bs-target="#charts" type="button" role="tab" aria-controls="charts" aria-selected="false">Charts</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="historical-tab" data-bs-toggle="tab" data-bs-target="#historical" type="button" role="tab" aria-controls="historical" aria-selected="false">Historical</button>
+          </li>
+        </ul>
+        <div class="tab-content" id="myTabContent">
+          <div class="tab-pane fade show active" id="agents" role="tabpanel" aria-labelledby="agents-tab">
+            <div class="card">
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-hover">
+                    <thead>
+                      <tr>
+                        <th>Agent</th>
+                        <th>Status</th>
+                        <th>Calls</th>
+                        <th>Success Rate</th>
+                        <th>Avg Duration</th>
+                        <th>Load Score</th>
+                      </tr>
+                    </thead>
+                    <tbody id="agentTableBody">
+                      <!-- Agent data will be populated here -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tab-pane fade" id="charts" role="tabpanel" aria-labelledby="charts-tab">
+            <div class="card">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6 mb-4">
+                    <h5>Call Volume</h5>
+                    <div class="chart-container">
+                      <canvas id="callVolumeChart"></canvas>
+                    </div>
+                  </div>
+                  <div class="col-md-6 mb-4">
+                    <h5>Success Rate</h5>
+                    <div class="chart-container">
+                      <canvas id="successRateChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-6 mb-4">
+                    <h5>Agent Availability</h5>
+                    <div class="chart-container">
+                      <canvas id="agentAvailabilityChart"></canvas>
+                    </div>
+                  </div>
+                  <div class="col-md-6 mb-4">
+                    <h5>Queue Depth</h5>
+                    <div class="chart-container">
+                      <canvas id="queueDepthChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tab-pane fade" id="historical" role="tabpanel" aria-labelledby="historical-tab">
+            <div class="card">
+              <div class="card-body">
+                <div class="chart-container" style="height: 400px;">
+                  <canvas id="historicalChart"></canvas>
+                </div>
+                <div class="mt-3">
+                  <select id="historicalMetricSelect" class="form-select">
+                    <option value="callsProcessed">Calls Processed</option>
+                    <option value="callsPerMinute">Calls Per Minute</option>
+                    <option value="successRate">Success Rate</option>
+                    <option value="agentsAvailable">Agents Available</option>
+                    <option value="queuedCalls">Queued Calls</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Alerts</span>
+            <div>
+              <button id="showAllAlertsBtn" class="btn btn-sm btn-outline-secondary">Show All</button>
+              <button id="showActiveAlertsBtn" class="btn btn-sm btn-primary">Active Only</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="alertsContainer">
+              <!-- Alerts will be populated here -->
+              <div class="text-center text-muted" id="noAlertsMessage">
+                No alerts to display
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Global variables for charts
+    let callVolumeChart, successRateChart, agentAvailabilityChart, queueDepthChart, historicalChart;
+    let historicalData = [];
+    let showAcknowledgedAlerts = false;
+
+    // Initialize the dashboard
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize charts
+      initializeCharts();
+      
+      // Load initial data
+      refreshDashboard();
+      
+      // Set up refresh button
+      document.getElementById('refreshBtn').addEventListener('click', refreshDashboard);
+      
+      // Set up log metrics button
+      document.getElementById('logMetricsBtn').addEventListener('click', logMetrics);
+      
+      // Set up alert filter buttons
+      document.getElementById('showAllAlertsBtn').addEventListener('click', function() {
+        showAcknowledgedAlerts = true;
+        loadAlerts();
+      });
+      
+      document.getElementById('showActiveAlertsBtn').addEventListener('click', function() {
+        showAcknowledgedAlerts = false;
+        loadAlerts();
+      });
+      
+      // Set up historical metric select
+      document.getElementById('historicalMetricSelect').addEventListener('change', updateHistoricalChart);
+      
+      // Auto-refresh every 60 seconds
+      setInterval(refreshDashboard, 60000);
+    });
+
+    // Initialize charts
+    function initializeCharts() {
+      // Call Volume Chart
+      const callVolumeCtx = document.getElementById('callVolumeChart').getContext('2d');
+      callVolumeChart = new Chart(callVolumeCtx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Calls Per Minute',
+            data: [],
+            borderColor: 'rgba(75, 192, 192, 1)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+      
+      // Success Rate Chart
+      const successRateCtx = document.getElementById('successRateChart').getContext('2d');
+      successRateChart = new Chart(successRateCtx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Success Rate (%)',
+            data: [],
+            borderColor: 'rgba(54, 162, 235, 1)',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100
+            }
+          }
+        }
+      });
+      
+      // Agent Availability Chart
+      const agentAvailabilityCtx = document.getElementById('agentAvailabilityChart').getContext('2d');
+      agentAvailabilityChart = new Chart(agentAvailabilityCtx, {
+        type: 'pie',
+        data: {
+          labels: ['Available', 'Unavailable', 'After Call Work'],
+          datasets: [{
+            data: [0, 0, 0],
+            backgroundColor: [
+              'rgba(40, 167, 69, 0.7)',
+              'rgba(220, 53, 69, 0.7)',
+              'rgba(255, 193, 7, 0.7)'
+            ],
+            borderColor: [
+              'rgba(40, 167, 69, 1)',
+              'rgba(220, 53, 69, 1)',
+              'rgba(255, 193, 7, 1)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+      
+      // Queue Depth Chart
+      const queueDepthCtx = document.getElementById('queueDepthChart').getContext('2d');
+      queueDepthChart = new Chart(queueDepthCtx, {
+        type: 'bar',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Queued Calls',
+            data: [],
+            backgroundColor: 'rgba(255, 159, 64, 0.7)',
+            borderColor: 'rgba(255, 159, 64, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+      
+      // Historical Chart
+      const historicalCtx = document.getElementById('historicalChart').getContext('2d');
+      historicalChart = new Chart(historicalCtx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Calls Processed',
+            data: [],
+            borderColor: 'rgba(153, 102, 255, 1)',
+            backgroundColor: 'rgba(153, 102, 255, 0.2)',
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    // Refresh the dashboard
+    async function refreshDashboard() {
+      try {
+        // Load system metrics
+        await loadSystemMetrics();
+        
+        // Load agent metrics
+        await loadAgentMetrics();
+        
+        // Load alerts
+        await loadAlerts();
+        
+        // Load historical data
+        await loadHistoricalData();
+        
+        // Update charts
+        updateCharts();
+      } catch (error) {
+        console.error('Error refreshing dashboard:', error);
+        alert('Error refreshing dashboard. See console for details.');
+      }
+    }
+
+    // Load system metrics
+    async function loadSystemMetrics() {
+      const response = await fetch('/api/monitoring/system', {
+        headers: {
+          'Authorization': `Bearer ${getToken()}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load system metrics: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Failed to load system metrics: ${data.error}`);
+      }
+      
+      const metrics = data.metrics;
+      
+      // Update system metrics display
+      document.getElementById('callsProcessed').textContent = metrics.callsProcessed;
+      document.getElementById('callsPerMinute').textContent = metrics.callsPerMinute.toFixed(1);
+      
+      const successRate = metrics.callsProcessed > 0 
+        ? (metrics.callsSucceeded / metrics.callsProcessed * 100).toFixed(1) 
+        : 0;
+      document.getElementById('successRate').textContent = `${successRate}%`;
+      
+      document.getElementById('avgCallDuration').textContent = `${Math.round(metrics.avgCallDuration)}s`;
+      document.getElementById('agentsAvailable').textContent = metrics.agentsAvailable;
+      document.getElementById('queuedCalls').textContent = metrics.queuedCalls;
+      document.getElementById('avgWaitTime').textContent = `${Math.round(metrics.avgWaitTime)}s`;
+      
+      // Format uptime
+      const hours = Math.floor(metrics.uptime / 3600);
+      const minutes = Math.floor((metrics.uptime % 3600) / 60);
+      document.getElementById('uptime').textContent = `${hours}h ${minutes}m`;
+      
+      // Update last updated timestamp
+      const lastUpdated = new Date(metrics.lastUpdated);
+      document.getElementById('lastUpdated').textContent = `Last updated: ${lastUpdated.toLocaleTimeString()}`;
+      
+      // Add data point to charts
+      const now = new Date().toLocaleTimeString();
+      
+      // Call Volume Chart
+      callVolumeChart.data.labels.push(now);
+      callVolumeChart.data.datasets[0].data.push(metrics.callsPerMinute);
+      
+      if (callVolumeChart.data.labels.length > 10) {
+        callVolumeChart.data.labels.shift();
+        callVolumeChart.data.datasets[0].data.shift();
+      }
+      
+      // Success Rate Chart
+      successRateChart.data.labels.push(now);
+      successRateChart.data.datasets[0].data.push(parseFloat(successRate));
+      
+      if (successRateChart.data.labels.length > 10) {
+        successRateChart.data.labels.shift();
+        successRateChart.data.datasets[0].data.shift();
+      }
+      
+      // Queue Depth Chart
+      queueDepthChart.data.labels.push(now);
+      queueDepthChart.data.datasets[0].data.push(metrics.queuedCalls);
+      
+      if (queueDepthChart.data.labels.length > 10) {
+        queueDepthChart.data.labels.shift();
+        queueDepthChart.data.datasets[0].data.shift();
+      }
+    }
+
+    // Load agent metrics
+    async function loadAgentMetrics() {
+      const response = await fetch('/api/monitoring/agents', {
+        headers: {
+          'Authorization': `Bearer ${getToken()}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load agent metrics: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Failed to load agent metrics: ${data.error}`);
+      }
+      
+      const metrics = data.metrics;
+      
+      // Update agent table
+      const tableBody = document.getElementById('agentTableBody');
+      tableBody.innerHTML = '';
+      
+      // Count agent statuses for the pie chart
+      let availableCount = 0;
+      let unavailableCount = 0;
+      let afterCallWorkCount = 0;
+      
+      for (const agentId in metrics) {
+        const agent = metrics[agentId];
+        
+        // Count for pie chart
+        if (agent.status === 'Available') {
+          availableCount++;
+        } else if (agent.status === 'After Call Work') {
+          afterCallWorkCount++;
+        } else {
+          unavailableCount++;
+        }
+        
+        // Create table row
+        const row = document.createElement('tr');
+        
+        // Get status class
+        let statusClass = '';
+        if (agent.status === 'Available') {
+          statusClass = 'status-available';
+        } else if (agent.status === 'Unavailable') {
+          statusClass = 'status-unavailable';
+        } else if (agent.status === 'After Call Work') {
+          statusClass = 'status-after-call-work';
+        }
+        
+        // Calculate success rate
+        const successRate = agent.callsProcessed > 0 
+          ? (agent.callsSucceeded / agent.callsProcessed * 100).toFixed(1) 
+          : 0;
+        
+        row.innerHTML = `
+          <td>${agent.username}</td>
+          <td><span class="${statusClass}">${agent.status}</span>${agent.inCooldown ? ' (Cooldown)' : ''}</td>
+          <td>${agent.callsProcessed}</td>
+          <td>${successRate}%</td>
+          <td>${Math.round(agent.avgCallDuration)}s</td>
+          <td>${agent.loadScore.toFixed(1)}</td>
+        `;
+        
+        tableBody.appendChild(row);
+      }
+      
+      // Update agent availability chart
+      agentAvailabilityChart.data.datasets[0].data = [
+        availableCount,
+        unavailableCount,
+        afterCallWorkCount
+      ];
+      agentAvailabilityChart.update();
+    }
+
+    // Load alerts
+    async function loadAlerts() {
+      const response = await fetch(`/api/monitoring/alerts?includeAcknowledged=${showAcknowledgedAlerts}`, {
+        headers: {
+          'Authorization': `Bearer ${getToken()}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load alerts: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Failed to load alerts: ${data.error}`);
+      }
+      
+      const alerts = data.alerts;
+      
+      // Update alerts container
+      const alertsContainer = document.getElementById('alertsContainer');
+      const noAlertsMessage = document.getElementById('noAlertsMessage');
+      
+      if (alerts.length === 0) {
+        alertsContainer.innerHTML = '';
+        noAlertsMessage.style.display = 'block';
+        return;
+      }
+      
+      noAlertsMessage.style.display = 'none';
+      alertsContainer.innerHTML = '';
+      
+      for (const alert of alerts) {
+        const alertElement = document.createElement('div');
+        alertElement.className = `alert-item ${alert.acknowledged ? 'acknowledged' : ''}`;
+        
+        const timestamp = new Date(alert.timestamp);
+        
+        alertElement.innerHTML = `
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <strong>${alert.type.replace(/_/g, ' ')}</strong>
+              ${alert.count > 1 ? `<span class="alert-count">${alert.count}</span>` : ''}
+              <div>${alert.message}</div>
+              <div class="alert-timestamp">${timestamp.toLocaleString()}</div>
+            </div>
+            ${!alert.acknowledged ? `
+              <button class="btn btn-sm btn-outline-secondary acknowledge-btn" data-alert-id="${alert.id}">
+                Acknowledge
+              </button>
+            ` : ''}
+          </div>
+        `;
+        
+        alertsContainer.appendChild(alertElement);
+      }
+      
+      // Add event listeners to acknowledge buttons
+      const acknowledgeButtons = document.querySelectorAll('.acknowledge-btn');
+      acknowledgeButtons.forEach(button => {
+        button.addEventListener('click', acknowledgeAlert);
+      });
+    }
+
+    // Acknowledge an alert
+    async function acknowledgeAlert(event) {
+      const alertId = event.target.dataset.alertId;
+      
+      try {
+        const response = await fetch(`/api/monitoring/alerts/${alertId}/acknowledge`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to acknowledge alert: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error(`Failed to acknowledge alert: ${data.error}`);
+        }
+        
+        // Reload alerts
+        loadAlerts();
+      } catch (error) {
+        console.error('Error acknowledging alert:', error);
+        alert('Error acknowledging alert. See console for details.');
+      }
+    }
+
+    // Load historical data
+    async function loadHistoricalData() {
+      const response = await fetch('/api/monitoring/historical', {
+        headers: {
+          'Authorization': `Bearer ${getToken()}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load historical data: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(`Failed to load historical data: ${data.error}`);
+      }
+      
+      historicalData = data.metrics;
+      
+      // Update historical chart
+      updateHistoricalChart();
+    }
+
+    // Update historical chart
+    function updateHistoricalChart() {
+      if (historicalData.length === 0) {
+        return;
+      }
+      
+      const metricSelect = document.getElementById('historicalMetricSelect');
+      const selectedMetric = metricSelect.value;
+      
+      // Prepare data for chart
+      const labels = [];
+      const values = [];
+      
+      for (const entry of historicalData) {
+        const timestamp = new Date(entry.timestamp);
+        labels.push(timestamp.toLocaleString());
+        
+        let value = 0;
+        
+        switch (selectedMetric) {
+          case 'callsProcessed':
+            value = entry.system.callsProcessed;
+            break;
+          case 'callsPerMinute':
+            value = entry.system.callsPerMinute;
+            break;
+          case 'successRate':
+            value = entry.system.callsProcessed > 0 
+              ? (entry.system.callsSucceeded / entry.system.callsProcessed * 100)
+              : 0;
+            break;
+          case 'agentsAvailable':
+            value = entry.system.agentsAvailable;
+            break;
+          case 'queuedCalls':
+            value = entry.system.queuedCalls;
+            break;
+        }
+        
+        values.push(value);
+      }
+      
+      // Update chart
+      historicalChart.data.labels = labels;
+      historicalChart.data.datasets[0].label = metricSelect.options[metricSelect.selectedIndex].text;
+      historicalChart.data.datasets[0].data = values;
+      
+      // Set y-axis max for success rate
+      if (selectedMetric === 'successRate') {
+        historicalChart.options.scales.y.max = 100;
+      } else {
+        historicalChart.options.scales.y.max = undefined;
+      }
+      
+      historicalChart.update();
+    }
+
+    // Update all charts
+    function updateCharts() {
+      callVolumeChart.update();
+      successRateChart.update();
+      queueDepthChart.update();
+    }
+
+    // Log metrics
+    async function logMetrics() {
+      try {
+        const response = await fetch('/api/monitoring/log', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to log metrics: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error(`Failed to log metrics: ${data.error}`);
+        }
+        
+        alert('Metrics logged successfully');
+        
+        // Reload historical data
+        loadHistoricalData();
+      } catch (error) {
+        console.error('Error logging metrics:', error);
+        alert('Error logging metrics. See console for details.');
+      }
+    }
+
+    // Get authentication token from localStorage
+    function getToken() {
+      return localStorage.getItem('token') || '';
+    }
+  </script>
+</body>
+</html>

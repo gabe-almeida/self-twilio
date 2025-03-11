@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twilio Dialer - Workflow Testing</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+            height: 100vh;
+        }
+        .workflow-tester {
+            display: flex;
+            height: calc(100vh - 56px);
+        }
+        .sidebar {
+            width: 300px;
+            background-color: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .test-panel {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .test-results {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-top: 15px;
+            background-color: #f8f9fa;
+        }
+        .path-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            background-color: white;
+        }
+        .path-steps {
+            font-family: monospace;
+            white-space: pre-wrap;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .context-view {
+            font-family: monospace;
+            white-space: pre-wrap;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-top: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .validation-error {
+            color: #dc3545;
+        }
+        .validation-warning {
+            color: #ffc107;
+        }
+        .validation-info {
+            color: #0dcaf0;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Twilio Dialer Workflow Testing</a>
+            <div class="d-flex align-items-center">
+                <button class="btn btn-outline-light me-2" id="back-btn">
+                    <i class="bi bi-arrow-left"></i> Back
+                </button>
+                <div class="dropdown ms-3">
+                    <button class="btn btn-outline-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle"></i> <span id="user-name">Admin</span>
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item" href="#" id="logout-link"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="workflow-tester">
+        <div class="sidebar">
+            <h5>Workflow Selection</h5>
+            <div class="mb-3">
+                <select class="form-select" id="workflow-select">
+                    <option value="">Select a workflow</option>
+                </select>
+            </div>
+            
+            <div id="workflow-details" class="mb-3" style="display: none;">
+                <h6>Workflow Details</h6>
+                <div class="mb-2">
+                    <strong>Name:</strong> <span id="workflow-name"></span>
+                </div>
+                <div class="mb-2">
+                    <strong>Description:</strong> <span id="workflow-description"></span>
+                </div>
+                <div class="mb-2">
+                    <strong>Steps:</strong> <span id="step-count"></span>
+                </div>
+                <div class="mb-2">
+                    <strong>Status:</strong> <span id="workflow-status"></span>
+                </div>
+            </div>
+            
+            <div id="test-settings" class="mb-3">
+                <h6>Test Settings</h6>
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="simulate-branches" checked>
+                    <label class="form-check-label" for="simulate-branches">Simulate all branches</label>
+                </div>
+                
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="detect-loops" checked>
+                    <label class="form-check-label" for="detect-loops">Detect infinite loops</label>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="test-context" class="form-label">Initial Context (JSON)</label>
+                    <textarea class="form-control" id="test-context" rows="5" placeholder='{"lead": {"name": "John Doe", "phone": "+15551234567"}, "priority": 2}'></textarea>
+                </div>
+            </div>
+            
+            <div class="d-grid gap-2">
+                <button class="btn btn-primary" id="validate-btn">
+                    <i class="bi bi-check-circle"></i> Validate Workflow
+                </button>
+                <button class="btn btn-success" id="simulate-btn">
+                    <i class="bi bi-play-circle"></i> Simulate Execution
+                </button>
+            </div>
+        </div>
+
+        <div class="test-panel">
+            <div>
+                <h4>
+                    <span id="result-title">Test Results</span>
+                    <button class="btn btn-sm btn-outline-secondary float-end" id="clear-results-btn">
+                        <i class="bi bi-trash"></i> Clear Results
+                    </button>
+                </h4>
+            </div>
+            <div class="test-results" id="results-container">
+                <div class="alert alert-info">
+                    Select a workflow and run validation or simulation tests to see results here.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Required workflow validation library -->
+    <script src="/js/workflow-validation.js"></script>
+    
+    <script>
+        // Global variables
+        let token;
+        let user;
+        let currentWorkflow;
+        let workflows = [];
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Check if user is logged in
+                token = localStorage.getItem('token');
+                const userJson = localStorage.getItem('user');
+                
+                if (!token || !userJson) {
+                    // Redirect to login page if not logged in
+                    window.location.href = '/login.html';
+                    return;
+                }
+                
+                // Validate token by making a request to check authentication
+                try {
+                    const authCheckResponse = await fetch('/auth/profile', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (!authCheckResponse.ok) {
+                        // Token is invalid or expired
+                        console.error('Authentication token is invalid or expired');
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                        window.location.href = '/login.html?error=session_expired';
+                        return;
+                    }
+                } catch (authError) {
+                    console.error('Error validating authentication:', authError);
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login.html?error=auth_error';
+                    return;
+                }
+                
+                user = JSON.parse(userJson);
+                
+                // Check if user is admin
+                if (user.role !== 'admin') {
+                    alert('You do not have permission to access the workflow testing');
+                    window.location.href = '/dashboard.html';
+                    return;
+                }
+                
+                document.getElementById('user-name').textContent = user.full_name || user.username;
+                
+                // Load workflows
+                await loadWorkflows();
+                
+                // Set up event listeners
+                setupEventListeners();
+            } catch (error) {
+                console.error('Error initializing application:', error);
+                alert('Error initializing application. Please try logging in again.');
+                setTimeout(() => {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login.html?error=init_error';
+                }, 2000);
+            }
+        });
+        
+        // Load workflows from server
+        async function loadWorkflows() {
+            try {
+                const response = await fetch('/api/workflows', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load workflows: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data || !Array.isArray(data.workflows)) {
+                    throw new Error('Invalid workflow data received from server');
+                }
+                
+                workflows = data.workflows;
+                
+                // Populate workflow select
+                const workflowSelect = document.getElementById('workflow-select');
+                workflowSelect.innerHTML = '<option value="">Select a workflow</option>';
+                
+                workflows.forEach(workflow => {
+                    const option = document.createElement('option');
+                    option.value = workflow.id;
+                    option.textContent = workflow.name || 'Unnamed Workflow';
+                    workflowSelect.appendChild(option);
+                });
+                
+                console.log(`Loaded ${workflows.length} workflows`);
+            } catch (error) {
+                console.error('Error loading workflows:', error);
+                showErrorMessage('Failed to load workflows. Please try again later.');
+            }
+        }
+        
+        // Set up event listeners
+        function setupEventListeners() {
+            // Back button
+            document.getElementById('back-btn').addEventListener('click', () => {
+                window.location.href = '/admin.html';
+            });
+            
+            // Logout link
+            document.getElementById('logout-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                logout();
+            });
+            
+            // Workflow select
+            document.getElementById('workflow-select').addEventListener('change', function() {
+                const workflowId = this.value;
+                if (workflowId) {
+                    loadWorkflowDetails(workflowId);
+                } else {
+                    document.getElementById('workflow-details').style.display = 'none';
+                    currentWorkflow = null;
+                }
+            });
+            
+            // Validate button
+            document.getElementById('validate-btn').addEventListener('click', () => {
+                if (!currentWorkflow) {
+                    alert('Please select a workflow first');
+                    return;
+                }
+                
+                validateCurrentWorkflow();
+            });
+            
+            // Simulate button
+            document.getElementById('simulate-btn').addEventListener('click', () => {
+                if (!currentWorkflow) {
+                    alert('Please select a workflow first');
+                    return;
+                }
+                
+                simulateCurrentWorkflow();
+            });
+            
+            // Clear results button
+            document.getElementById('clear-results-btn').addEventListener('click', () => {
+                clearResults();
+            });
+        }
+        
+        // Load workflow details
+        async function loadWorkflowDetails(workflowId) {
+            try {
+                const response = await fetch(`/api/workflows/${workflowId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to load workflow: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data || !data.workflow) {
+                    throw new Error('Invalid workflow data received from server');
+                }
+                
+                currentWorkflow = data.workflow;
+                
+                // Update UI with workflow data
+                document.getElementById('workflow-name').textContent = currentWorkflow.name || 'Unnamed Workflow';
+                document.getElementById('workflow-description').textContent = currentWorkflow.description || 'No description';
+                document.getElementById('step-count').textContent = currentWorkflow.steps ? currentWorkflow.steps.length : 0;
+                document.getElementById('workflow-status').textContent = currentWorkflow.active ? 'Active' : 'Inactive';
+                document.getElementById('workflow-details').style.display = 'block';
+                
+                console.log('Workflow loaded successfully:', currentWorkflow.name);
+            } catch (error) {
+                console.error('Error loading workflow details:', error);
+                showErrorMessage(`Failed to load workflow details: ${error.message}`);
+                document.getElementById('workflow-details').style.display = 'none';
+            }
+        }
+        
+        // Validate current workflow
+        function validateCurrentWorkflow() {
+            try {
+                if (!currentWorkflow) {
+                    alert('Please select a workflow first');
+                    return;
+                }
+                
+                const detectLoops = document.getElementById('detect-loops').checked;
+                
+                // Get validation issues
+                const issues = WorkflowValidation.validateWorkflow(currentWorkflow);
+                
+                // Display results
+                const resultsContainer = document.getElementById('results-container');
+                resultsContainer.innerHTML = '';
+                
+                if (issues.length === 0) {
+                    resultsContainer.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle-fill"></i> Validation passed! No issues found.
+                        </div>
+                    `;
+                } else {
+                    // Header with issue count
+                    const headerDiv = document.createElement('div');
+                    headerDiv.className = 'alert alert-warning';
+                    headerDiv.innerHTML = `
+                        <i class="bi bi-exclamation-triangle-fill"></i> 
+                        Found ${issues.length} issue${issues.length !== 1 ? 's' : ''} in workflow "${currentWorkflow.name}".
+                    `;
+                    resultsContainer.appendChild(headerDiv);
+                    
+                    // List of issues
+                    const issuesList = document.createElement('div');
+                    issuesList.className = 'list-group mb-3';
+                    
+                    issues.forEach(issue => {
+                        const issueItem = document.createElement('div');
+                        issueItem.className = 'list-group-item';
+                        
+                        let levelClass = '';
+                        let levelIcon = '';
+                        
+                        switch (issue.level) {
+                            case 'error':
+                                levelClass = 'validation-error';
+                                levelIcon = 'bi-x-circle-fill';
+                                break;
+                            case 'warning':
+                                levelClass = 'validation-warning';
+                                levelIcon = 'bi-exclamation-triangle-fill';
+                                break;
+                            case 'info':
+                                levelClass = 'validation-info';
+                                levelIcon = 'bi-info-circle-fill';
+                                break;
+                        }
+                        
+                        issueItem.innerHTML = `
+                            <div class="${levelClass}">
+                                <i class="bi ${levelIcon}"></i> ${issue.message}
+                            </div>
+                            ${issue.step ? `<div class="text-muted small mt-1">Affected step: ${issue.step}</div>` : ''}
+                        `;
+                        
+                        issuesList.appendChild(issueItem);
+                    });
+                    
+                    resultsContainer.appendChild(issuesList);
+                }
+                
+                // If loop detection is enabled, find and show potential loops
+                if (detectLoops) {
+                    const loops = WorkflowValidation.findPotentialLoops(currentWorkflow);
+                    if (loops.length > 0) {
+                        const loopsHeader = document.createElement('div');
+                        loopsHeader.className = 'alert alert-warning mt-3';
+                        loopsHeader.innerHTML = `
+                            <i class="bi bi-arrow-repeat"></i> 
+                            Found ${loops.length} potential infinite loop${loops.length !== 1 ? 's' : ''}.
+                        `;
+                        resultsContainer.appendChild(loopsHeader);
+                        
+                        const loopsList = document.createElement('div');
+                        loopsList.className = 'list-group';
+                        
+                        loops.forEach((loop, index) => {
+                            const loopItem = document.createElement('div');
+                            loopItem.className = 'list-group-item';
+                            
+                            // Map step IDs to step names when possible
+                            const loopSteps = loop.map(stepId => {
+                                const step = currentWorkflow.steps.find(s => s.id === stepId);
+                                return step ? `${step.name || stepId} (${stepId})` : stepId;
+                            });
+                            
+                            loopItem.innerHTML = `
+                                <div>
+                                    <strong>Loop #${index + 1}:</strong>
+                                </div>
+                                <div class="path-steps">
+                                    ${loopSteps.join(' → ')}
+                                </div>
+                            `;
+                            
+                            loopsList.appendChild(loopItem);
+                        });
+                        
+                        resultsContainer.appendChild(loopsList);
+                    }
+                }
+                
+                // Scroll to top of results
+                resultsContainer.scrollTop = 0;
+                
+            } catch (error) {
+                console.error('Error validating workflow:', error);
+                showErrorMessage(`Validation error: ${error.message}`);
+            }
+        }
+        
+        // Simulate current workflow
+        function simulateCurrentWorkflow() {
+            try {
+                if (!currentWorkflow) {
+                    alert('Please select a workflow first');
+                    return;
+                }
+                
+                // Get initial context from JSON input
+                let initialContext = {};
+                try {
+                    const contextJson = document.getElementById('test-context').value.trim();
+                    if (contextJson) {
+                        initialContext = JSON.parse(contextJson);
+                    }
+                } catch (jsonError) {
+                    showErrorMessage(`Invalid JSON in test context: ${jsonError.message}`);
+                    return;
+                }
+                
+                // Simulate workflow execution
+                const simulationResults = WorkflowValidation.simulateWorkflow(currentWorkflow, initialContext);
+                
+                // Display results
+                const resultsContainer = document.getElementById('results-container');
+                resultsContainer.innerHTML = '';
+                
+                // Add header with simulation overview
+                const headerDiv = document.createElement('div');
+                if (simulationResults.success) {
+                    headerDiv.className = 'alert alert-success';
+                    headerDiv.innerHTML = `
+                        <i class="bi bi-check-circle-fill"></i> 
+                        Simulation complete - Found ${simulationResults.paths.length} execution path${simulationResults.paths.length !== 1 ? 's' : ''}.
+                        ${simulationResults.problems > 0 ? `<div class="mt-2"><i class="bi bi-exclamation-triangle-fill"></i> ${simulationResults.problems} path(s) had issues.</div>` : ''}
+                    `;
+                } else {
+                    headerDiv.className = 'alert alert-danger';
+                    headerDiv.innerHTML = `
+                        <i class="bi bi-x-circle-fill"></i> 
+                        Simulation failed: ${simulationResults.message}
+                    `;
+                }
+                resultsContainer.appendChild(headerDiv);
+                
+                // If simulation was successful, show paths
+                if (simulationResults.success && simulationResults.paths.length > 0) {
+                    // List of execution paths
+                    simulationResults.paths.forEach((path, index) => {
+                        const pathItem = document.createElement('div');
+                        pathItem.className = `path-item ${path.truncated || path.error ? 'border-warning' : ''}`;
+                        
+                        // Path header
+                        const pathHeader = document.createElement('div');
+                        pathHeader.innerHTML = `
+                            <strong>Path #${index + 1}</strong>
+                            ${path.truncated ? ' <span class="badge bg-warning text-dark">Truncated</span>' : ''}
+                            ${path.error ? ` <span class="badge bg-danger">${path.error}</span>` : ''}
+                        `;
+                        pathItem.appendChild(pathHeader);
+                        
+                        // Path visualization
+                        const pathSteps = document.createElement('div');
+                        pathSteps.className = 'path-steps';
+                        
+                        // Map step IDs to step names when possible
+                        const formattedPath = path.path.map(stepId => {
+                            // Check if this is a branch indicator
+                            if (stepId === '(TRUE)' || stepId === '(FALSE)') {
+                                return stepId;
+                            }
+                            
+                            // Check if this is an error message
+                            if (stepId.includes('not found') || stepId.includes('infinite loop') || stepId.includes('dead end')) {
+                                return `⚠️ ${stepId}`;
+                            }
+                            
+                            const step = currentWorkflow.steps.find(s => s.id === stepId);
+                            return step ? `${step.name || step.type} (${stepId})` : stepId;
+                        });
+                        
+                        pathSteps.textContent = formattedPath.join(' → ');
+                        pathItem.appendChild(pathSteps);
+                        
+                        // Context view
+                        if (Object.keys(path.context).length > 0) {
+                            const contextHeader = document.createElement('div');
+                            contextHeader.className = 'mt-3 mb-1';
+                            contextHeader.innerHTML = '<strong>Final Context:</strong>';
+                            pathItem.appendChild(contextHeader);
+                            
+                            const contextView = document.createElement('div');
+                            contextView.className = 'context-view';
+                            contextView.textContent = JSON.stringify(path.context, null, 2);
+                            pathItem.appendChild(contextView);
+                        }
+                        
+                        resultsContainer.appendChild(pathItem);
+                    });
+                }
+                
+                // Scroll to top of results
+                resultsContainer.scrollTop = 0;
+                
+            } catch (error) {
+                console.error('Error simulating workflow:', error);
+                showErrorMessage(`Simulation error: ${error.message}`);
+            }
+        }
+        
+        // Helper functions
+        function showErrorMessage(message) {
+            const resultsContainer = document.getElementById('results-container');
+            resultsContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i> ${message}
+                </div>
+            `;
+        }
+        
+        function clearResults() {
+            const resultsContainer = document.getElementById('results-container');
+            resultsContainer.innerHTML = `
+                <div class="alert alert-info">
+                    Select a workflow and run validation or simulation tests to see results here.
+                </div>
+            `;
+        }
+        
+        // Logout
+        function logout() {
+            // Clear local storage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Redirect to login page
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+</html>

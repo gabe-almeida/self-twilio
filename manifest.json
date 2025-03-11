@@ -29,6 +29,12 @@
   "background": {
     "service_worker": "background/background.js"
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["config/config.json"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "commands": {
     "_execute_action": {
       "suggested_key": {

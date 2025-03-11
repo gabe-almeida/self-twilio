@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Status Dashboard - Twilio Dialer Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <style>
+        body {
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 48px 0 0;
+            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+            background-color: #f8f9fa;
+        }
+        .sidebar-sticky {
+            position: relative;
+            top: 0;
+            height: calc(100vh - 48px);
+            padding-top: .5rem;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        .navbar {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+        }
+        .nav-link {
+            color: #333;
+            font-weight: 500;
+        }
+        .nav-link.active {
+            color: #0d6efd;
+        }
+        .main-content {
+            margin-left: 240px;
+            padding: 20px;
+        }
+        .status-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .status-available {
+            background-color: #28a745;
+        }
+        .status-unavailable {
+            background-color: #dc3545;
+        }
+        .status-offline {
+            background-color: #6c757d;
+        }
+        .status-busy {
+            background-color: #ffc107;
+        }
+        .status-after-call {
+            background-color: #17a2b8;
+        }
+        .status-card {
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .status-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+        .status-card-available {
+            background-color: rgba(40, 167, 69, 0.1);
+            border-left: 5px solid #28a745;
+        }
+        .status-card-unavailable {
+            background-color: rgba(220, 53, 69, 0.1);
+            border-left: 5px solid #dc3545;
+        }
+        .status-card-offline {
+            background-color: rgba(108, 117, 125, 0.1);
+            border-left: 5px solid #6c757d;
+        }
+        .status-card-busy {
+            background-color: rgba(255, 193, 7, 0.1);
+            border-left: 5px solid #ffc107;
+        }
+        .status-card-after-call {
+            background-color: rgba(23, 162, 184, 0.1);
+            border-left: 5px solid #17a2b8;
+        }
+        .status-count {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        .status-label {
+            font-size: 1.2rem;
+            color: #6c757d;
+        }
+        .agent-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .agent-table th,
+        .agent-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .agent-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        .agent-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        .agent-table .time-in-status {
+            font-family: monospace;
+            font-weight: bold;
+        }
+        .agent-table .long-duration {
+            color: #dc3545;
+        }
+        .action-btn {
+            padding: 5px 10px;
+            margin-right: 5px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .refresh-btn {
+            float: right;
+            margin-bottom: 15px;
+        }
+        .filter-controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .status-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .status-summary-card {
+            flex: 1;
+            min-width: 200px;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .status-summary-available {
+            background-color: #28a745;
+            color: white;
+        }
+        .status-summary-unavailable {
+            background-color: #dc3545;
+            color: white;
+        }
+        .status-summary-offline {
+            background-color: #6c757d;
+            color: white;
+        }
+        .status-summary-busy {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .status-summary-after-call {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .status-count {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        .status-label {
+            font-size: 1.2rem;
+            margin-top: 5px;
+        }
+        .chart-container {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Twilio Dialer Admin</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin.html">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/admin-agent-status.html">Agent Status</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin-call-queue.html">Call Queue</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin-reports.html">Reports</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <div class="dropdown">
+                        <button class="btn btn-outline-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle"></i> <span id="admin-name">Admin</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="#" id="profile-link"><i class="bi bi-person"></i> Profile</a></li>
+                            <li><a class="dropdown-item" href="#" id="logout-link"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block sidebar">
+                <div class="position-sticky sidebar-sticky">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#overview-section" data-section="overview-section">
+                                <i class="bi bi-speedometer2"></i> Overview
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#agent-list-section" data-section="agent-list-section">
+                                <i class="bi bi-people"></i> Agent List
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#status-history-section" data-section="status-history-section">
+                                <i class="bi bi-clock-history"></i> Status History
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#settings-section" data-section="settings-section">
+                                <i class="bi bi-gear"></i> Settings
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2" id="section-title">Agent Status Dashboard</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="refresh-btn">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Overview Section -->
+                <div id="overview-section" class="section active">
+                    <div class="status-summary">
+                        <div class="status-summary-card status-summary-available">
+                            <div class="status-count" id="available-count">0</div>
+                            <div class="status-label">Available</div>
+                        </div>
+                        <div class="status-summary-card status-summary-unavailable">
+                            <div class="status-count" id="unavailable-count">0</div>
+                            <div class="status-label">Unavailable</div>
+                        </div>
+                        <div class="status-summary-card status-summary-busy">
+                            <div class="status-count" id="busy-count">0</div>
+                            <div class="status-label">Busy</div>
+                        </div>
+                        <div class="status-summary-card status-summary-after-call">
+                            <div class="status-count" id="after-call-count">0</div>
+                            <div class="status-label">After Call Work</div>
+                        </div>
+                        <div class="status-summary-card status-summary-offline">
+                            <div class="status-count" id="offline-count">0</div>
+                            <div class="status-label">Offline</div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">Agents in After Call Work > 5 minutes</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped" id="acw-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Agent</th>
+                                                    <th>Time in ACW</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="acw-table-body">
+                                                <!-- Data will be loaded dynamically -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">Available Agents</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped" id="available-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Agent</th>
+                                                    <th>Time Available</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="available-table-body">
+                                                <!-- Data will be loaded dynamically -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container mt-4">
+                        <h5>Agent Status Distribution</h5>
+                        <canvas id="status-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Agent List Section -->
+                <div id="agent-list-section" class="section">
+                    <div class="filter-controls">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="status-filter">Filter by Status</label>
+                                    <select class="form-select" id="status-filter">
+                                        <option value="all">All Statuses</option>
+                                        <option value="Available">Available</option>
+                                        <option value="Unavailable">Unavailable</option>
+                                        <option value="Busy">Busy</option>
+                                        <option value="After Call Work">After Call Work</option>
+                                        <option value="Offline">Offline</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="search-agent">Search Agent</label>
+                                    <input type="text" class="form-control" id="search-agent" placeholder="Search by name...">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="sort-by">Sort By</label>
+                                    <select class="form-select" id="sort-by">
+                                        <option value="name">Name</option>
+                                        <option value="status">Status</option>
+                                        <option value="time">Time in Status</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="agent-table">
+                            <thead>
+                                <tr>
+                                    <th>Agent</th>
+                                    <th>Status</th>
+                                    <th>Time in Status</th>
+                                    <th>Last Status Change</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="agent-table-body">
+                                <!-- Data will be loaded dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Status History Section -->
+                <div id="status-history-section" class="section">
+                    <div class="filter-controls">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="agent-select">Select Agent</label>
+                                    <select class="form-select" id="agent-select">
+                                        <option value="all">All Agents</option>
+                                        <!-- Agents will be loaded dynamically -->
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="date-range">Date Range</label>
+                                    <select class="form-select" id="date-range">
+                                        <option value="today">Today</option>
+                                        <option value="yesterday">Yesterday</option>
+                                        <option value="week">Last 7 Days</option>
+                                        <option value="month">Last 30 Days</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="export-format">Export</label>
+                                    <div class="input-group">
+                                        <select class="form-select" id="export-format">
+                                            <option value="csv">CSV</option>
+                                            <option value="json">JSON</option>
+                                            <option value="pdf">PDF</option>
+                                        </select>
+                                        <button class="btn btn-outline-secondary" type="button" id="export-btn">Export</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Agent</th>
+                                    <th>From Status</th>
+                                    <th>To Status</th>
+                                    <th>Timestamp</th>
+                                    <th>Duration</th>
+                                    <th>Source</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table-body">
+                                <!-- Data will be loaded dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="chart-container mt-4">
+                        <h5>Status Duration Distribution</h5>
+                        <canvas id="duration-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Settings Section -->
+                <div id="settings-section" class="section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title">Agent Status Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="settings-form">
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="auto-transition-acw" checked>
+                                        <label class="form-check-label" for="auto-transition-acw">
+                                            Automatically transition from After Call Work to Available
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="acw-timeout" class="form-label">After Call Work Timeout (minutes)</label>
+                                    <input type="number" class="form-control" id="acw-timeout" min="1" max="60" value="5">
+                                    <div class="form-text">Agents will be automatically transitioned to Available after this time.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="status-validation" checked>
+                                        <label class="form-check-label" for="status-validation">
+                                            Enable status validation
+                                        </label>
+                                    </div>
+                                    <div class="form-text">Enforce valid status transitions according to the state machine.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="status-notifications" checked>
+                                        <label class="form-check-label" for="status-notifications">
+                                            Enable status notifications
+                                        </label>
+                                    </div>
+                                    <div class="form-text">Send notifications to agents about their status.</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="acw-reminder" class="form-label">After Call Work Reminder (minutes)</label>
+                                    <input type="number" class="form-control" id="acw-reminder" min="1" max="30" value="3">
+                                    <div class="form-text">Agents will receive a reminder after being in After Call Work for this time.</div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save Settings</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Status Change Modal -->
+    <div class="modal fade" id="statusChangeModal" tabindex="-1" aria-labelledby="statusChangeModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="statusChangeModalLabel">Change Agent Status</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="status-change-form">
+                        <input type="hidden" id="agent-id">
+                        <div class="mb-3">
+                            <label for="agent-name" class="form-label">Agent</label>
+                            <input type="text" class="form-control" id="agent-name" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="current-status" class="form-label">Current Status</label>
+                            <input type="text" class="form-control" id="current-status" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new-status" class="form-label">New Status</label>
+                            <select class="form-select" id="new-status" required>
+                                <option value="Available">Available</option>
+                                <option value="Unavailable">Unavailable</option>
+                                <option value="Busy">Busy</option>
+                                <option value="After Call Work">After Call Work</option>
+                                <option value="Offline">Offline</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="status-note" class="form-label">Note (Optional)</label>
+                            <textarea class="form-control" id="status-note" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="save-status-btn">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Global variables
+        let token;
+        let user;
+        let agents = [];
+        let statusUpdateInterval;
+        let statusChart;
+        let durationChart;
+
+        // DOM elements
+        const navLinks = document.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('.section');
+        const sectionTitle = document.getElementById('section-title');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const statusFilter = document.getElementById('status-filter');
+        const searchAgent = document.getElementById('search-agent');
+        const sortBy = document.getElementById('sort-by');
+        const agentTableBody = document.getElementById('agent-table-body');
+        const acwTableBody = document.getElementById('acw-table-body');
+        const availableTableBody = document.getElementById('available-table-body');
+        const historyTableBody = document.getElementById('history-table-body');
+        const agentSelect = document.getElementById('agent-select');
+        const dateRange = document.getElementById('date-range');
+        const exportBtn = document.getElementById('export-btn');
+        const settingsForm = document.getElementById('settings-form');
+        const statusChangeForm = document.getElementById('status-change-form');
+        const saveStatusBtn = document.getElementById('save-status-btn');
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Check if user is logged in
+            token = localStorage.getItem('token');
+            const userJson = localStorage.getItem('user');
+            
+            if (!token || !userJson) {
+                // Redirect to login page if not logged in
+                window.location.href = '/login.html';
+                return;
+            }
+            
+            try {
+                user = JSON.parse(userJson);
+                
+                // Check if user is admin
+                if (user.role !== 'admin') {
+                    alert('You do not have permission to access this page.');
+                    window.location.href = '/dashboard.html';
+                    return;
+                }
+                
+                // Set admin name
+                document.getElementById('admin-name').textContent = user.full_name || user.username;
+                
+                // Set up event listeners
+                setupEventListeners();
+                
+                // Load initial data
+                await loadAgentStatuses();
+                
+                // Start auto-refresh
+                startAutoRefresh();
+                
+                // Initialize charts
+                initializeCharts();
+                
+                // Load feature flags
+                await loadFeatureFlags();
+            } catch (error) {
+                console.error('Error initializing application:', error);
+                alert('Error initializing application. Please try logging in again.');
+            }
+        });
+
+        // Set up event listeners
+        function setupEventListeners() {
+            // Navigation links
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    // Remove active class from all links and sections
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    sections.forEach(s => s.classList.remove('active'));
+                    
+                    // Add active class to clicked link
+                    link.classList.add('active');
+                    
+                    // Show corresponding section
+                    const sectionId = link.getAttribute('data-section');
+                    document.getElementById(sectionId).classList.add('active');
+                    
+                    // Update section title
+                    sectionTitle.textContent = link.textContent.trim();
+                });
+            });
+            
+            // Refresh button
+            refreshBtn.addEventListener('click', async () => {
+                await loadAgentStatuses();
+            });
+            
+            // Status filter
+            statusFilter.addEventListener('change', filterAgents);
+            
+            // Search agent
+            searchAgent.addEventListener('input', filterAgents);
+            
+            // Sort by
+            sortBy.addEventListener('change', filterAgents);
+            
+            // Export button
+            exportBtn.addEventListener('click', exportData);
+            
+            // Settings form
+            settingsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await saveSettings();
+            });
+            
+            // Save status button
+            saveStatusBtn.addEventListener('click', async () => {
+                await changeAgentStatus();
+            });
+            
+            // Logout link
+            document.getElementById('logout-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                logout();
+            });
+        }
+
+        // Load agent statuses
+        async function loadAgentStatuses() {
+            try {
+                const response = await fetch('/api/agent-status', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get agent statuses');
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    agents = data.data;
+                    
+                    // Update UI
+                    updateStatusCounts();
+                    updateAgentTable();
+                    updateACWTable();
+                    updateAvailableTable();
+                    updateAgentSelect();
+                    updateCharts();
+                }
+            } catch (error) {
+                console.error('Error loading agent statuses:', error);
+                alert('Error loading agent statuses. Please try again.');
+            }
+        }
+
+        // Update status counts
+        function updateStatusCounts() {
+            // Reset counts
+            let availableCount = 0;
+            let unavailableCount = 0;
+            let busyCount = 0;
+            let afterCallCount = 0;
+            let offlineCount = 0;
+            
+            // Count agents by status
+            agents.forEach(agent => {
+                switch (agent.status) {
+                    case 'Available':
+                        availableCount++;
+                        break;
+                    case 'Unavailable':
+                        unavailableCount++;
+                        break;
+                    case 'Busy':
+                        busyCount++;
+                        break;
+                    case 'After Call Work':
+                        afterCallCount++;
+                        break;
+                    case 'Offline':
+                        offlineCount++;
+                        break;
+                }
+            });
+            
+            // Update UI
+            document.getElementById('available-count').textContent = availableCount;
+            document.getElementById('unavailable-count').textContent = unavailableCount;
+            document.getElementById('busy-count').textContent = busyCount;
+            document.getElementById('after-call-count').textContent = afterCallCount;
+            document.getElementById('offline-count').textContent = offlineCount;
+        }
+
+        // Update agent table
+        function updateAgentTable() {
+            // Clear table
+            agentTableBody.innerHTML = '';
+            
+            // Filter and sort agents
+            const filteredAgents = filterAndSortAgents();
+            
+            // Add agents to table
+            filteredAgents.forEach(agent => {
+                const row = document.createElement('tr');
+                
+                // Calculate time in status
+                const lastStatusChange = new Date(agent.last_status_change);
+                const now = new Date();
+                const timeInStatus = now - lastStatusChange;
+                const hours = Math.floor(timeInStatus / (1000 * 60 * 60));
+                const minutes = Math.floor((timeInStatus % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeInStatus % (1000 * 60)) / 1000);
+                const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Format date
+                const formattedDate = lastStatusChange.toLocaleString();
+                
+                // Create status indicator
+                const statusClass = getStatusClass(agent.status);
+                
+                row.innerHTML = `
+                    <td>${agent.full_name || agent.username}</td>
+                    <td><span class="status-indicator ${statusClass}"></span>${agent.status}</td>
+                    <td class="time-in-status" data-timestamp="${agent.last_status_change}">${timeString}</td>
+                    <td>${formattedDate}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary change-status-btn" data-agent-id="${agent.user_id}" data-agent-name="${agent.full_name || agent.username}" data-status="${agent.status}">
+                            Change Status
+                        </button>
+                    </td>
+                `;
+                
+                agentTableBody.appendChild(row);
+            });
+            
+            // Add event listeners to change status buttons
+            document.querySelectorAll('.change-status-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    openStatusChangeModal(
+                        button.getAttribute('data-agent-id'),
+                        button.getAttribute('data-agent-name'),
+                        button.getAttribute('data-status')
+                    );
+                });
+            });
+        }
+
+        // Update ACW table
+        function updateACWTable() {
+            // Clear table
+            acwTableBody.innerHTML = '';
+            
+            // Get agents in After Call Work for more than 5 minutes
+            const acwAgents = agents.filter(agent => {
+                if (agent.status !== 'After Call Work') {
+                    return false;
+                }
+                
+                const lastStatusChange = new Date(agent.last_status_change);
+                const now = new Date();
+                const timeInStatus = now - lastStatusChange;
+                const minutes = Math.floor(timeInStatus / (1000 * 60));
+                
+                return minutes >= 5;
+            });
+            
+            // Sort by time in status (descending)
+            acwAgents.sort((a, b) => {
+                const timeA = new Date(a.last_status_change);
+                const timeB = new Date(b.last_status_change);
+                return timeA - timeB;
+            });
+            
+            // Add agents to table
+            acwAgents.forEach(agent => {
+                const row = document.createElement('tr');
+                
+                // Calculate time in status
+                const lastStatusChange = new Date(agent.last_status_change);
+                const now = new Date();
+                const timeInStatus = now - lastStatusChange;
+                const hours = Math.floor(timeInStatus / (1000 * 60 * 60));
+                const minutes = Math.floor((timeInStatus % (1000 * 60 * 60)) / (1000 * 60));
+                const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                
+                row.innerHTML = `
+                    <td>${agent.full_name || agent.username}</td>
+                    <td class="time-in-status" data-timestamp="${agent.last_status_change}">${timeString}</td>
+                    <td>
+                        <button class="btn btn-sm btn-success set-available-btn" data-agent-id="${agent.user_id}">
+                            Set Available
+                        </button>
+                    </td>
+                `;
+                
+                acwTableBody.appendChild(row);
+            });
+            
+            // Add event listeners to set available buttons
+            document.querySelectorAll('.set-available-btn').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const agentId = button.getAttribute('data-agent-id');
+                    await setAgentStatus(agentId, 'Available');
+                });
+            });
+            
+            // Show message if no agents in ACW
+            if (acwAgents.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="3" class="text-center">No agents in After Call Work for more than 5 minutes</td>
+                `;
+                acwTableBody.appendChild(row);
+            }
+        }
+
+        // Update available table
+        function updateAvailableTable() {
+            // Clear table
+            availableTableBody.innerHTML = '';
+            
+            // Get available agents
+            const availableAgents = agents.filter(agent => agent.status === 'Available');
+            
+            // Sort by time in status (descending)
+            availableAgents.sort((a, b) => {
+                const timeA = new Date(a.last_status_change);
+                const timeB = new Date(b.last_status_change);
+                return timeA - timeB;
+            });
+            
+            // Add agents to table
+            availableAgents.forEach(agent => {
+                const row = document.createElement('tr');
+                
+                // Calculate time in status
+                const lastStatusChange = new Date(agent.last_status_change);
+                const now = new Date();
+                const timeInStatus = now - lastStatusChange;
+                const hours = Math.floor(timeInStatus / (1000 * 60 * 60));
+                const minutes = Math.floor((timeInStatus % (1000 * 60 * 60)) / (1000 * 60));
+                const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                
+                row.innerHTML = `
+                    <td>${agent.full_name || agent.username}</td>
+                    <td class="time-in-status" data-timestamp="${agent.last_status_change}">${timeString}</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning set-unavailable-btn" data-agent-id="${agent.user_id}">
+                            Set Unavailable
+                        </button>
+                    </td>
+                `;
+                
+                availableTableBody.appendChild(row);
+            });
+            
+            // Add event listeners to set unavailable buttons
+            document.querySelectorAll('.set-unavailable-btn').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const agentId = button.getAttribute('data-agent-id');
+                    await setAgentStatus(agentId, 'Unavailable');
+                });
+            });
+            
+            // Show message if no available agents
+            if (availableAgents.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="3" class="text-center">No available agents</td>
+                `;
+                availableTableBody.appendChild(row);
+            }
+        }
+
+        // Update agent select
+        function updateAgentSelect() {
+            // Clear select
+            agentSelect.innerHTML = '<option value="all">All Agents</option>';
+            
+            // Add agents to select
+            agents.forEach(agent => {
+                const option = document.createElement('option');
+                option.value = agent.user_id;
+                option.textContent = agent.full_name || agent.username;
+                agentSelect.appendChild(option);
+            });
+        }
+
+        // Filter and sort agents
+        function filterAndSortAgents() {
+            // Get filter values
+            const statusValue = statusFilter.value;
+            const searchValue = searchAgent.value.toLowerCase();
+            const sortValue = sortBy.value;
+            
+            // Filter agents
+            let filteredAgents = agents.filter(agent => {
+                // Filter by status
+                if (statusValue !== 'all' && agent.status !== statusValue) {
+                    return false;
+                }
+                
+                // Filter by search
+                const agentName = (agent.full_name || agent.username).toLowerCase();
+                if (searchValue && !agentName.includes(searchValue)) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            // Sort agents
+            filteredAgents.sort((a, b) => {
+                switch (sortValue) {
+                    case 'name':
+                        return (a.full_name || a.username).localeCompare(b.full_name || b.username);
+                    case 'status':
+                        return a.status.localeCompare(b.status);
+                    case 'time':
+                        return new Date(a.last_status_change) - new Date(b.last_status_change);
+                    default:
+                        return 0;
+                }
+            });
+            
+            return filteredAgents;
+        }
+
+        // Filter agents
+        function filterAgents() {
+            updateAgentTable();
+        }
+
+        // Get status class
+        function getStatusClass(status) {
+            switch (status) {
+                case 'Available':
+                    return 'status-available';
+                case 'Unavailable':
+                    return 'status-unavailable';
+                case 'Busy':
+                    return 'status-busy';
+                case 'After Call Work':
+                    return 'status-after-call';
+                case 'Offline':
+                    return 'status-offline';
+                default:
+                    return '';
+            }
+        }
+
+        // Open status change modal
+        function openStatusChangeModal(agentId, agentName, currentStatus) {
+            // Set modal values
+            document.getElementById('agent-id').value = agentId;
+            document.getElementById('agent-name').value = agentName;
+            document.getElementById('current-status').value = currentStatus;
+            document.getElementById('new-status').value = currentStatus;
+            document.getElementById('status-note').value = '';
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('statusChangeModal'));
+            modal.show();
+        }
+
+        // Change agent status
+        async function changeAgentStatus() {
+            try {
+                const agentId = document.getElementById('agent-id').value;
+                const newStatus = document.getElementById('new-status').value;
+                const note = document.getElementById('status-note').value;
+                
+                // Send request to update status
+                const response = await fetch(`/api/agent-status/${agentId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        status: newStatus,
+                        note: note
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to update agent status');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('statusChangeModal'));
+                    modal.hide();
+                    
+                    // Reload agent statuses
+                    await loadAgentStatuses();
+                    
+                    // Show success message
+                    alert(`Agent status updated to ${newStatus}`);
+                } else {
+                    alert(`Error updating agent status: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error changing agent status:', error);
+                alert('Error changing agent status. Please try again.');
+            }
+        }
+
+        // Set agent status
+        async function setAgentStatus(agentId, status) {
+            try {
+                // Send request to update status
+                const response = await fetch(`/api/agent-status/${agentId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        status: status
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to update agent status');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Reload agent statuses
+                    await loadAgentStatuses();
+                } else {
+                    alert(`Error updating agent status: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error setting agent status:', error);
+                alert('Error setting agent status. Please try again.');
+            }
+        }
+
+        // Start auto-refresh
+        function startAutoRefresh() {
+            // Clear any existing interval
+            if (statusUpdateInterval) {
+                clearInterval(statusUpdateInterval);
+            }
+            
+            // Update time in status every second
+            setInterval(updateTimeInStatus, 1000);
+            
+            // Refresh agent statuses every 30 seconds
+            statusUpdateInterval = setInterval(async () => {
+                await loadAgentStatuses();
+            }, 30000);
+        }
+
+        // Update time in status
+        function updateTimeInStatus() {
+            document.querySelectorAll('.time-in-status').forEach(cell => {
+                const timestamp = cell.getAttribute('data-timestamp');
+                if (!timestamp) return;
+                
+                const lastStatusChange = new Date(timestamp);
+                const now = new Date();
+                const timeInStatus = now - lastStatusChange;
+                
+                const hours = Math.floor(timeInStatus / (1000 * 60 * 60));
+                const minutes = Math.floor((timeInStatus % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeInStatus % (1000 * 60)) / 1000);
+                
+                // Format based on whether the cell is in the agent table or a summary table
+                if (cell.parentElement.parentElement.id === 'agent-table-body') {
+                    cell.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                } else {
+                    cell.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                }
+                
+                // Highlight long durations
+                if (hours > 0 || minutes >= 5) {
+                    cell.classList.add('text-danger', 'fw-bold');
+                } else {
+                    cell.classList.remove('text-danger', 'fw-bold');
+                }
+            });
+        }
+
+        // Initialize charts
+        function initializeCharts() {
+            // Status chart
+            const statusCtx = document.getElementById('status-chart').getContext('2d');
+            statusChart = new Chart(statusCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Available', 'Unavailable', 'Busy', 'After Call Work', 'Offline'],
+                    datasets: [{
+                        data: [0, 0, 0, 0, 0],
+                        backgroundColor: [
+                            '#28a745', // Available
+                            '#dc3545', // Unavailable
+                            '#ffc107', // Busy
+                            '#17a2b8', // After Call Work
+                            '#6c757d'  // Offline
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            });
+            
+            // Duration chart
+            const durationCtx = document.getElementById('duration-chart').getContext('2d');
+            durationChart = new Chart(durationCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Available', 'Unavailable', 'Busy', 'After Call Work', 'Offline'],
+                    datasets: [{
+                        label: 'Average Duration (minutes)',
+                        data: [0, 0, 0, 0, 0],
+                        backgroundColor: [
+                            '#28a745', // Available
+                            '#dc3545', // Unavailable
+                            '#ffc107', // Busy
+                            '#17a2b8', // After Call Work
+                            '#6c757d'  // Offline
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update charts
+        function updateCharts() {
+            // Count agents by status
+            let availableCount = 0;
+            let unavailableCount = 0;
+            let busyCount = 0;
+            let afterCallCount = 0;
+            let offlineCount = 0;
+            
+            // Calculate total time in status
+            let availableTime = 0;
+            let unavailableTime = 0;
+            let busyTime = 0;
+            let afterCallTime = 0;
+            let offlineTime = 0;
+            
+            const now = new Date();
+            
+            agents.forEach(agent => {
+                const lastStatusChange = new Date(agent.last_status_change);
+                const timeInStatus = now - lastStatusChange;
+                const timeInMinutes = timeInStatus / (1000 * 60);
+                
+                switch (agent.status) {
+                    case 'Available':
+                        availableCount++;
+                        availableTime += timeInMinutes;
+                        break;
+                    case 'Unavailable':
+                        unavailableCount++;
+                        unavailableTime += timeInMinutes;
+                        break;
+                    case 'Busy':
+                        busyCount++;
+                        busyTime += timeInMinutes;
+                        break;
+                    case 'After Call Work':
+                        afterCallCount++;
+                        afterCallTime += timeInMinutes;
+                        break;
+                    case 'Offline':
+                        offlineCount++;
+                        offlineTime += timeInMinutes;
+                        break;
+                }
+            });
+            
+            // Calculate average time in status
+            const avgAvailableTime = availableCount > 0 ? availableTime / availableCount : 0;
+            const avgUnavailableTime = unavailableCount > 0 ? unavailableTime / unavailableCount : 0;
+            const avgBusyTime = busyCount > 0 ? busyTime / busyCount : 0;
+            const avgAfterCallTime = afterCallCount > 0 ? afterCallTime / afterCallCount : 0;
+            const avgOfflineTime = offlineCount > 0 ? offlineTime / offlineCount : 0;
+            
+            // Update status chart
+            statusChart.data.datasets[0].data = [
+                availableCount,
+                unavailableCount,
+                busyCount,
+                afterCallCount,
+                offlineCount
+            ];
+            statusChart.update();
+            
+            // Update duration chart
+            durationChart.data.datasets[0].data = [
+                avgAvailableTime.toFixed(1),
+                avgUnavailableTime.toFixed(1),
+                avgBusyTime.toFixed(1),
+                avgAfterCallTime.toFixed(1),
+                avgOfflineTime.toFixed(1)
+            ];
+            durationChart.update();
+        }
+
+        // Load feature flags
+        async function loadFeatureFlags() {
+            try {
+                const response = await fetch('/api/feature-flags', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get feature flags');
+                }
+                
+                const data = await response.json();
+                
+                // Set form values
+                document.getElementById('auto-transition-acw').checked = data.agentStatus?.autoTransitionFromACW || false;
+                document.getElementById('acw-timeout').value = data.agentStatus?.acwTimeoutMinutes || 5;
+                document.getElementById('status-validation').checked = data.agentStatus?.statusValidationEnabled || false;
+                document.getElementById('status-notifications').checked = data.agentStatus?.statusNotificationsEnabled || false;
+                document.getElementById('acw-reminder').value = data.agentStatus?.acwReminderMinutes || 3;
+            } catch (error) {
+                console.error('Error loading feature flags:', error);
+            }
+        }
+
+        // Save settings
+        async function saveSettings() {
+            try {
+                const autoTransitionACW = document.getElementById('auto-transition-acw').checked;
+                const acwTimeout = parseInt(document.getElementById('acw-timeout').value);
+                const statusValidation = document.getElementById('status-validation').checked;
+                const statusNotifications = document.getElementById('status-notifications').checked;
+                const acwReminder = parseInt(document.getElementById('acw-reminder').value);
+                
+                // Send request to update feature flags
+                const response = await fetch('/api/feature-flags', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        agentStatus: {
+                            autoTransitionFromACW: autoTransitionACW,
+                            acwTimeoutMinutes: acwTimeout,
+                            statusValidationEnabled: statusValidation,
+                            statusNotificationsEnabled: statusNotifications,
+                            acwReminderMinutes: acwReminder
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to update feature flags');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Settings saved successfully');
+                } else {
+                    alert(`Error saving settings: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                alert('Error saving settings. Please try again.');
+            }
+        }
+
+        // Export data
+        function exportData() {
+            const format = document.getElementById('export-format').value;
+            const agentId = document.getElementById('agent-select').value;
+            const dateRangeValue = document.getElementById('date-range').value;
+            
+            // In a real implementation, this would call an API endpoint to generate the export
+            alert(`Exporting data in ${format.toUpperCase()} format for ${agentId === 'all' ? 'all agents' : 'agent ' + agentId} for ${dateRangeValue}`);
+        }
+
+        // Logout
+        function logout() {
+            // Clear local storage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Redirect to login page
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+</html>

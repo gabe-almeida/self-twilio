@@ -1,0 +1,17 @@
+{
+  "SERVER_URL": "https://89bd-2600-4040-5f87-5900-30cd-b863-962-b04c.ngrok-free.app",
+  "DEFAULT_CALLER_ID": "+19788785223",
+  "TWILIO": {
+    "TOKEN_REFRESH_INTERVAL": 3600000
+  },
+  "UI": {
+    "DURATION_UPDATE_INTERVAL": 1000,
+    "SHOW_DEBUG": true
+  },
+  "STORAGE": {
+    "TOKEN": "twilioToken",
+    "CALLER_IDS": "callerIds",
+    "CALL_HISTORY": "callHistory"
+  },
+  "DEBUG": true
+}

@@ -1,0 +1,2142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twilio Dialer - Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <style>
+        body {
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 48px 0 0;
+            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+            background-color: #f8f9fa;
+        }
+        .sidebar-sticky {
+            position: relative;
+            top: 0;
+            height: calc(100vh - 48px);
+            padding-top: .5rem;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        .navbar {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+        }
+        .nav-link {
+            color: #333;
+            font-weight: 500;
+        }
+        .nav-link.active {
+            color: #0d6efd;
+        }
+        .main-content {
+            margin-left: 240px;
+            padding: 20px;
+        }
+        .status-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .status-available {
+            background-color: #28a745;
+        }
+        .status-unavailable {
+            background-color: #dc3545;
+        }
+        .status-offline {
+            background-color: #6c757d;
+        }
+        .status-busy {
+            background-color: #ffc107;
+        }
+        .status-after-call {
+            background-color: #17a2b8;
+        }
+        .section {
+            display: none;
+            margin-bottom: 30px;
+        }
+        .section.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Twilio Dialer Admin</a>
+            <div class="d-flex align-items-center">
+                <div class="dropdown ms-3">
+                    <button class="btn btn-outline-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle"></i> <span id="user-name">Admin</span>
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item" href="#" id="profile-link"><i class="bi bi-person"></i> Profile</a></li>
+                        <li><a class="dropdown-item" href="#" id="logout-link"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block sidebar">
+                <div class="position-sticky sidebar-sticky">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#" data-section="dashboard-section">
+                                <i class="bi bi-speedometer2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-section="agents-section">
+                                <i class="bi bi-people"></i> Agents
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-section="queue-section">
+                                <i class="bi bi-list-ol"></i> Call Queue
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-section="history-section">
+                                <i class="bi bi-clock-history"></i> Call History
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-section="users-section">
+                                <i class="bi bi-person-plus"></i> User Management
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-section="rules-section">
+                                <i class="bi bi-gear"></i> Call Queue Rules
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-section="dispositions-section">
+                                <i class="bi bi-list-check"></i> Call Dispositions
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-section="workflows-section">
+                                <i class="bi bi-diagram-3"></i> Workflows
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" data-section="config-section">
+                                <i class="bi bi-gear-fill"></i> System Configuration
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2" id="section-title">Dashboard</h1>
+                </div>
+
+                <!-- Dashboard Section -->
+                <div id="dashboard-section" class="section active">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="card text-white bg-primary mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">Total Agents</h5>
+                                    <p class="card-text display-4" id="total-agents">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-white bg-success mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">Available Agents</h5>
+                                    <p class="card-text display-4" id="available-agents">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-white bg-warning mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">Calls in Queue</h5>
+                                    <p class="card-text display-4" id="calls-in-queue">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-white bg-info mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">Calls Today</h5>
+                                    <p class="card-text display-4" id="calls-today">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Agent Status</h5>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Agent</th>
+                                                    <th>Status</th>
+                                                    <th>Last Changed</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="agent-status-table">
+                                                <!-- Agent statuses will be added here dynamically -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Recent Calls</h5>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Agent</th>
+                                                    <th>Phone Number</th>
+                                                    <th>Time</th>
+                                                    <th>Duration</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="recent-calls-table">
+                                                <!-- Recent calls will be added here dynamically -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agents Section -->
+                <div id="agents-section" class="section">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Agent Status</h5>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Agent</th>
+                                                    <th>Status</th>
+                                                    <th>Last Changed</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="agents-table">
+                                                <!-- Agents will be added here dynamically -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Queue Section -->
+                <div id="queue-section" class="section">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Call Queue</h5>
+                                    <div class="mb-3">
+                                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addQueueModal">
+                                            <i class="bi bi-plus-circle"></i> Add to Queue
+                                        </button>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Phone Number</th>
+                                                    <th>Contact Name</th>
+                                                    <th>Priority</th>
+                                                    <th>Status</th>
+                                                    <th>Created</th>
+                                                    <th>Assigned To</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="queue-table-body">
+                                                <!-- Queue items will be added here dynamically -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Section -->
+                <div id="history-section" class="section">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Call History</h5>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Agent</th>
+                                                    <th>Phone Number</th>
+                                                    <th>Contact Name</th>
+                                                    <th>Direction</th>
+                                                    <th>Date/Time</th>
+                                                    <th>Duration</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="history-table-body">
+                                                <!-- History items will be added here dynamically -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Section -->
+                <div id="users-section" class="section">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">User Management</h5>
+                                    <div class="mb-3">
+                                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                                            <i class="bi bi-person-plus"></i> Add User
+                                        </button>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Username</th>
+                                                    <th>Full Name</th>
+                                                    <th>Email</th>
+                                                    <th>Role</th>
+                                                    <th>Created</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="users-table-body">
+                                                <!-- Users will be added here dynamically -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rules Section -->
+                <div id="rules-section" class="section">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card mb-4">
+                                <div class="card-body">
+                                    <h5 class="card-title">Call Queue Rules</h5>
+                                    <p class="card-text">Configure rules for automatic call handling in the queue.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- New Lead Rule -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="card-title">New Lead Rule</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">When a new lead is created, call immediately.</p>
+                                    
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="newLeadRuleEnabled">
+                                        <label class="form-check-label" for="newLeadRuleEnabled">Enable New Lead Rule</label>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="newLeadPriority" class="form-label">Priority</label>
+                                        <select class="form-select" id="newLeadPriority">
+                                            <option value="1">Normal</option>
+                                            <option value="2">High</option>
+                                            <option value="3" selected>Urgent</option>
+                                        </select>
+                                        <div class="form-text">Set the priority for new lead calls.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- No Answer Retry Rule -->
+                        <div class="col-md-6">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="card-title">No Answer Retry Rule</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">If a call is dispositioned as "No Answer", retry after a delay.</p>
+                                    
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="noAnswerRetryEnabled">
+                                        <label class="form-check-label" for="noAnswerRetryEnabled">Enable No Answer Retry</label>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="retryDelayMinutes" class="form-label">Retry Delay (minutes)</label>
+                                        <input type="number" class="form-control" id="retryDelayMinutes" min="1" value="30">
+                                        <div class="form-text">How long to wait before retrying a no-answer call.</div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="maxRetries" class="form-label">Maximum Retries</label>
+                                        <input type="number" class="form-control" id="maxRetries" min="1" max="10" value="3">
+                                        <div class="form-text">Maximum number of retry attempts.</div>
+                                    </div>
+                                    
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" id="respectCallCenterHours" checked>
+                                        <label class="form-check-label" for="respectCallCenterHours">
+                                            Respect Call Center Hours
+                                        </label>
+                                        <div class="form-text">Only retry during call center hours.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Call Center Hours -->
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="card-title">Call Center Hours</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="callCenterHoursEnabled" checked>
+                                        <label class="form-check-label" for="callCenterHoursEnabled">Enable Call Center Hours</label>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="timezone" class="form-label">Timezone</label>
+                                                <select class="form-select" id="timezone">
+                                                    <option value="America/New_York" selected>Eastern Time (ET)</option>
+                                                    <option value="America/Chicago">Central Time (CT)</option>
+                                                    <option value="America/Denver">Mountain Time (MT)</option>
+                                                    <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="startTime" class="form-label">Start Time</label>
+                                                <input type="time" class="form-control" id="startTime" value="09:00">
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label for="endTime" class="form-label">End Time</label>
+                                                <input type="time" class="form-control" id="endTime" value="17:00">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Work Days</label>
+                                        <div class="d-flex flex-wrap">
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input workday-check" type="checkbox" value="0" id="sunday">
+                                                <label class="form-check-label" for="sunday">Sunday</label>
+                                            </div>
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input workday-check" type="checkbox" value="1" id="monday" checked>
+                                                <label class="form-check-label" for="monday">Monday</label>
+                                            </div>
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input workday-check" type="checkbox" value="2" id="tuesday" checked>
+                                                <label class="form-check-label" for="tuesday">Tuesday</label>
+                                            </div>
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input workday-check" type="checkbox" value="3" id="wednesday" checked>
+                                                <label class="form-check-label" for="wednesday">Wednesday</label>
+                                            </div>
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input workday-check" type="checkbox" value="4" id="thursday" checked>
+                                                <label class="form-check-label" for="thursday">Thursday</label>
+                                            </div>
+                                            <div class="form-check me-3">
+                                                <input class="form-check-input workday-check" type="checkbox" value="5" id="friday" checked>
+                                                <label class="form-check-label" for="friday">Friday</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input workday-check" type="checkbox" value="6" id="saturday">
+                                                <label class="form-check-label" for="saturday">Saturday</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-12">
+                            <button id="saveRulesBtn" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Save Rules
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dispositions Section -->
+                <div id="dispositions-section" class="section">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card mb-4">
+                                <div class="card-body">
+                                    <h5 class="card-title">Call Dispositions</h5>
+                                    <p class="card-text">Manage call dispositions for tracking call outcomes and triggering workflows.</p>
+                                    <div class="mb-3">
+                                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDispositionModal">
+                                            <i class="bi bi-plus-circle"></i> Add Disposition
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Description</th>
+                                                    <th>Final</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="dispositions-table-body">
+                                                <!-- Dispositions will be added here dynamically -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workflows Section -->
+                <div id="workflows-section" class="section">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Call Queue Workflows</h5>
+                                    <div class="mb-3">
+                                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addWorkflowModal">
+                                            <i class="bi bi-plus-circle"></i> Create Workflow
+                                        </button>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Description</th>
+                                                    <th>Triggers</th>
+                                                    <th>Steps</th>
+                                                    <th>Status</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="workflows-table-body">
+                                                <!-- Workflows will be added here dynamically -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Configuration Section -->
+                <div id="config-section" class="section">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card mb-4">
+                                <div class="card-body">
+                                    <h5 class="card-title">System Configuration</h5>
+                                    <p class="card-text">Manage Twilio credentials and system settings. Changes may require a server restart to take effect.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Twilio Configuration -->
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="card-title">Twilio Credentials</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="twilio-config-form">
+                                        <div class="mb-3">
+                                            <label for="twilio-account-sid" class="form-label">Account SID</label>
+                                            <input type="text" class="form-control" id="twilio-account-sid" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxx" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="twilio-auth-token" class="form-label">Auth Token</label>
+                                            <div class="input-group">
+                                                <input type="password" class="form-control" id="twilio-auth-token" placeholder="Enter new auth token or leave unchanged">
+                                                <button class="btn btn-outline-secondary" type="button" id="toggle-auth-token">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                            </div>
+                                            <div class="form-text">Leave blank to keep existing token.</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="twilio-twiml-app-sid" class="form-label">TwiML App SID</label>
+                                            <input type="text" class="form-control" id="twilio-twiml-app-sid" placeholder="APxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="twilio-api-key" class="form-label">API Key</label>
+                                            <input type="text" class="form-control" id="twilio-api-key" placeholder="SKxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="twilio-api-secret" class="form-label">API Secret</label>
+                                            <div class="input-group">
+                                                <input type="password" class="form-control" id="twilio-api-secret" placeholder="Enter new API secret or leave unchanged">
+                                                <button class="btn btn-outline-secondary" type="button" id="toggle-api-secret">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                            </div>
+                                            <div class="form-text">Leave blank to keep existing secret.</div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Server Configuration -->
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="card-title">Server Settings</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="server-config-form">
+                                        <div class="mb-3">
+                                            <label for="server-base-url" class="form-label">Server Base URL</label>
+                                            <input type="url" class="form-control" id="server-base-url" placeholder="https://example.ngrok-free.app">
+                                            <div class="form-text">Full URL where the server is accessible, including protocol (http:// or https://).</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="default-caller-id" class="form-label">Default Caller ID</label>
+                                            <input type="tel" class="form-control" id="default-caller-id" placeholder="+12345678900">
+                                            <div class="form-text">Must be a verified phone number or Twilio number in E.164 format.</div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12 mb-4">
+                            <button id="save-config-btn" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Save Configuration
+                            </button>
+                            <button id="test-twilio-btn" class="btn btn-outline-secondary ms-2">
+                                <i class="bi bi-check-circle"></i> Test Twilio Connection
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Add Disposition Modal -->
+    <div class="modal fade" id="addDispositionModal" tabindex="-1" aria-labelledby="addDispositionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addDispositionModalLabel">Add Disposition</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="disposition-form">
+                        <input type="hidden" id="disposition-id">
+                        <div class="mb-3">
+                            <label for="disposition-name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="disposition-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="disposition-description" class="form-label">Description</label>
+                            <textarea class="form-control" id="disposition-description" rows="2"></textarea>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="disposition-is-final">
+                            <label class="form-check-label" for="disposition-is-final">
+                                Final Disposition
+                            </label>
+                            <div class="form-text">Final dispositions end the call workflow and don't trigger further actions.</div>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="disposition-active" checked>
+                            <label class="form-check-label" for="disposition-active">
+                                Active
+                            </label>
+                            <div class="form-text">Inactive dispositions won't be available for selection.</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="save-disposition-btn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add to Queue Modal -->
+    <div class="modal fade" id="addQueueModal" tabindex="-1" aria-labelledby="addQueueModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addQueueModalLabel">Add to Call Queue</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="add-queue-form">
+                        <div class="mb-3">
+                            <label for="queue-phone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="queue-phone" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="queue-name" class="form-label">Contact Name</label>
+                            <input type="text" class="form-control" id="queue-name">
+                        </div>
+                        <div class="mb-3">
+                            <label for="queue-notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="queue-notes" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="queue-priority" class="form-label">Priority</label>
+                            <select class="form-select" id="queue-priority">
+                                <option value="1">Normal</option>
+                                <option value="2">High</option>
+                                <option value="3">Urgent</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="add-queue-submit">Add to Queue</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addUserModalLabel">Add User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="add-user-form">
+                        <div class="mb-3">
+                            <label for="user-username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="user-username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="user-password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="user-password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="user-fullname" class="form-label">Full Name</label>
+                            <input type="text" class="form-control" id="user-fullname" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="user-email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="user-email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="user-role" class="form-label">Role</label>
+                            <select class="form-select" id="user-role">
+                                <option value="agent">Agent</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="add-user-submit">Add User</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Workflow Modal -->
+    <div class="modal fade" id="addWorkflowModal" tabindex="-1" aria-labelledby="addWorkflowModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addWorkflowModalLabel">Create Workflow</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="add-workflow-form">
+                        <div class="mb-3">
+                            <label for="workflow-name" class="form-label">Workflow Name</label>
+                            <input type="text" class="form-control" id="workflow-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="workflow-description" class="form-label">Description</label>
+                            <textarea class="form-control" id="workflow-description" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Trigger Type</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="trigger-type" id="trigger-new-lead" value="new_lead" checked>
+                                <label class="form-check-label" for="trigger-new-lead">
+                                    New Lead
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="trigger-type" id="trigger-call-disposition" value="call_disposition">
+                                <label class="form-check-label" for="trigger-call-disposition">
+                                    Call Disposition
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="trigger-type" id="trigger-scheduled" value="scheduled">
+                                <label class="form-check-label" for="trigger-scheduled">
+                                    Scheduled
+                                </label>
+                            </div>
+                        </div>
+                        <div id="trigger-details" class="mb-3">
+                            <!-- Trigger-specific fields will be added here dynamically -->
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="create-workflow-btn">Create Workflow</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variables
+        let token;
+        let user;
+        let refreshInterval;
+
+        // DOM elements
+        const userNameElement = document.getElementById('user-name');
+        const navLinks = document.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('.section');
+        const sectionTitle = document.getElementById('section-title');
+        const totalAgentsElement = document.getElementById('total-agents');
+        const availableAgentsElement = document.getElementById('available-agents');
+        const callsInQueueElement = document.getElementById('calls-in-queue');
+        const callsTodayElement = document.getElementById('calls-today');
+        const agentStatusTable = document.getElementById('agent-status-table');
+        const recentCallsTable = document.getElementById('recent-calls-table');
+        const agentsTable = document.getElementById('agents-table');
+        const queueTableBody = document.getElementById('queue-table-body');
+        const historyTableBody = document.getElementById('history-table-body');
+        const usersTableBody = document.getElementById('users-table-body');
+        const dispositionsTableBody = document.getElementById('dispositions-table-body');
+        const addQueueSubmit = document.getElementById('add-queue-submit');
+        const addUserSubmit = document.getElementById('add-user-submit');
+        const saveDispositionBtn = document.getElementById('save-disposition-btn');
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Check if user is logged in
+            token = localStorage.getItem('token');
+            const userJson = localStorage.getItem('user');
+            
+            if (!token || !userJson) {
+                // Redirect to login page if not logged in
+                window.location.href = '/login.html';
+                return;
+            }
+            
+            try {
+                user = JSON.parse(userJson);
+                
+                // Check if user is admin
+                if (user.role !== 'admin') {
+                    alert('You do not have permission to access the admin dashboard');
+                    window.location.href = '/dashboard.html';
+                    return;
+                }
+                
+                userNameElement.textContent = user.full_name || user.username;
+                
+                // Set up event listeners
+                setupEventListeners();
+                
+                // Load initial data
+                loadDashboardData();
+                loadAgentsData();
+                loadQueueData();
+                loadHistoryData();
+                loadUsersData();
+                loadRulesData();
+                loadDispositionsData();
+                loadWorkflowsData();
+                loadConfigurationData();
+                
+                // Set up refresh interval
+                refreshInterval = setInterval(() => {
+                    loadDashboardData();
+                    
+                    // Refresh the active section data
+                    const activeSection = document.querySelector('.section.active');
+                    if (activeSection) {
+                        const sectionId = activeSection.id;
+                        
+                        switch (sectionId) {
+                            case 'agents-section':
+                                loadAgentsData();
+                                break;
+                            case 'queue-section':
+                                loadQueueData();
+                                break;
+                            case 'history-section':
+                                loadHistoryData();
+                                break;
+                            case 'users-section':
+                                loadUsersData();
+                                break;
+                            case 'rules-section':
+                                loadRulesData();
+                                break;
+                            case 'dispositions-section':
+                                loadDispositionsData();
+                                break;
+                            case 'workflows-section':
+                                loadWorkflowsData();
+                                break;
+                            case 'config-section':
+                                loadConfigurationData();
+                                break;
+                        }
+                    }
+                }, 30000); // Refresh every 30 seconds
+            } catch (error) {
+                console.error('Error initializing application:', error);
+                alert('Error initializing application. Please try logging in again.');
+            }
+        });
+
+        // Set up event listeners
+        function setupEventListeners() {
+            // Navigation links
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    // Remove active class from all links and sections
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    sections.forEach(s => s.classList.remove('active'));
+                    
+                    // Add active class to clicked link
+                    link.classList.add('active');
+                    
+                    // Show corresponding section
+                    const sectionId = link.getAttribute('data-section');
+                    document.getElementById(sectionId).classList.add('active');
+                    
+                    // Update section title
+                    sectionTitle.textContent = link.textContent.trim();
+                });
+            });
+            
+            // Logout link
+            document.getElementById('logout-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                logout();
+            });
+            
+            // Add to queue submit button
+            addQueueSubmit.addEventListener('click', () => {
+                addToQueue();
+            });
+            
+            // Add user submit button
+            addUserSubmit.addEventListener('click', () => {
+                addUser();
+            });
+            
+            // Save rules button
+            document.getElementById('saveRulesBtn').addEventListener('click', () => {
+                saveRules();
+            });
+            
+            // Save disposition button
+            saveDispositionBtn.addEventListener('click', () => {
+                saveDisposition();
+            });
+            
+            // Save configuration button
+            document.getElementById('save-config-btn').addEventListener('click', () => {
+                saveConfiguration();
+            });
+            
+            // Test Twilio connection button
+            document.getElementById('test-twilio-btn').addEventListener('click', () => {
+                testTwilioConnection();
+            });
+            
+            // Toggle password visibility buttons
+            document.getElementById('toggle-auth-token').addEventListener('click', () => {
+                togglePasswordVisibility('twilio-auth-token', 'toggle-auth-token');
+            });
+            
+            document.getElementById('toggle-api-secret').addEventListener('click', () => {
+                togglePasswordVisibility('twilio-api-secret', 'toggle-api-secret');
+            });
+        }
+
+        // Load dashboard data
+        async function loadDashboardData() {
+            try {
+                // Load agent statuses
+                const statusResponse = await fetch('/api/agent-status', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!statusResponse.ok) {
+                    throw new Error('Failed to get agent statuses');
+                }
+                
+                const statusData = await statusResponse.json();
+                
+                // Update agent status table
+                agentStatusTable.innerHTML = '';
+                
+                statusData.statuses.forEach(status => {
+                    const row = document.createElement('tr');
+                    
+                    // Format date
+                    const date = new Date(status.last_status_change);
+                    const formattedDate = date.toLocaleString();
+                    
+                    // Get status class
+                    let statusClass = '';
+                    switch (status.status) {
+                        case 'Available':
+                            statusClass = 'status-available';
+                            break;
+                        case 'Unavailable':
+                            statusClass = 'status-unavailable';
+                            break;
+                        case 'Busy':
+                            statusClass = 'status-busy';
+                            break;
+                        case 'After Call Work':
+                            statusClass = 'status-after-call';
+                            break;
+                        default:
+                            statusClass = 'status-offline';
+                    }
+                    
+                    row.innerHTML = `
+                        <td>${status.full_name}</td>
+                        <td><span class="status-indicator ${statusClass}"></span> ${status.status}</td>
+                        <td>${formattedDate}</td>
+                    `;
+                    
+                    agentStatusTable.appendChild(row);
+                });
+                
+                // Update dashboard stats
+                totalAgentsElement.textContent = statusData.statuses.length;
+                availableAgentsElement.textContent = statusData.statuses.filter(s => s.status === 'Available').length;
+                
+                // Load queue data
+                const queueResponse = await fetch('/api/call-queue/queued', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!queueResponse.ok) {
+                    throw new Error('Failed to get queued calls');
+                }
+                
+                const queueData = await queueResponse.json();
+                
+                // Update calls in queue
+                callsInQueueElement.textContent = queueData.calls.length;
+                
+                // Load call history
+                const historyResponse = await fetch('/api/call-history', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!historyResponse.ok) {
+                    throw new Error('Failed to get call history');
+                }
+                
+                const historyData = await historyResponse.json();
+                
+                // Update recent calls table
+                recentCallsTable.innerHTML = '';
+                
+                // Get today's calls
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                const todayCalls = historyData.history.filter(call => {
+                    const callDate = new Date(call.start_time);
+                    return callDate >= today;
+                });
+                
+                // Update calls today
+                callsTodayElement.textContent = todayCalls.length;
+                
+                // Show recent calls (up to 5)
+                const recentCalls = historyData.history.slice(0, 5);
+                
+                recentCalls.forEach(call => {
+                    const row = document.createElement('tr');
+                    
+                    // Format date
+                    const date = new Date(call.start_time);
+                    const formattedDate = date.toLocaleString();
+                    
+                    // Format duration
+                    let formattedDuration = '-';
+                    if (call.duration) {
+                        const minutes = Math.floor(call.duration / 60).toString().padStart(2, '0');
+                        const seconds = (call.duration % 60).toString().padStart(2, '0');
+                        formattedDuration = `${minutes}:${seconds}`;
+                    }
+                    
+                    row.innerHTML = `
+                        <td>${call.agent_name || call.username || '-'}</td>
+                        <td>${call.phone_number}</td>
+                        <td>${formattedDate}</td>
+                        <td>${formattedDuration}</td>
+                    `;
+                    
+                    recentCallsTable.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            }
+        }
+
+        // Load agents data
+        async function loadAgentsData() {
+            try {
+                const response = await fetch('/api/agent-status', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get agent statuses');
+                }
+                
+                const data = await response.json();
+                
+                // Update agents table
+                agentsTable.innerHTML = '';
+                
+                data.statuses.forEach(status => {
+                    const row = document.createElement('tr');
+                    
+                    // Format date
+                    const date = new Date(status.last_status_change);
+                    const formattedDate = date.toLocaleString();
+                    
+                    // Get status class
+                    let statusClass = '';
+                    switch (status.status) {
+                        case 'Available':
+                            statusClass = 'status-available';
+                            break;
+                        case 'Unavailable':
+                            statusClass = 'status-unavailable';
+                            break;
+                        case 'Busy':
+                            statusClass = 'status-busy';
+                            break;
+                        case 'After Call Work':
+                            statusClass = 'status-after-call';
+                            break;
+                        default:
+                            statusClass = 'status-offline';
+                    }
+                    
+                    row.innerHTML = `
+                        <td>${status.full_name}</td>
+                        <td><span class="status-indicator ${statusClass}"></span> ${status.status}</td>
+                        <td>${formattedDate}</td>
+                        <td>
+                            <button class="btn btn-sm btn-success set-status-btn" data-user-id="${status.user_id}" data-status="Available">
+                                Available
+                            </button>
+                            <button class="btn btn-sm btn-danger set-status-btn" data-user-id="${status.user_id}" data-status="Unavailable">
+                                Unavailable
+                            </button>
+                        </td>
+                    `;
+                    
+                    agentsTable.appendChild(row);
+                });
+                
+                // Add event listeners to status buttons
+                document.querySelectorAll('.set-status-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const userId = button.getAttribute('data-user-id');
+                        const status = button.getAttribute('data-status');
+                        setAgentStatus(userId, status);
+                    });
+                });
+            } catch (error) {
+                console.error('Error loading agents data:', error);
+            }
+        }
+
+        // Set agent status
+        async function setAgentStatus(userId, status) {
+            try {
+                const response = await fetch(`/api/agent-status/${userId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ status })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to update agent status');
+                }
+                
+                // Refresh agents data
+                loadAgentsData();
+                loadDashboardData();
+            } catch (error) {
+                console.error('Error setting agent status:', error);
+                alert(`Error setting agent status: ${error.message}`);
+            }
+        }
+
+        // Load queue data
+        async function loadQueueData() {
+            try {
+                const response = await fetch('/api/call-queue', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get call queue');
+                }
+                
+                const data = await response.json();
+                
+                // Update queue table
+                queueTableBody.innerHTML = '';
+                
+                data.calls.forEach(call => {
+                    const row = document.createElement('tr');
+                    
+                    // Format date
+                    const date = new Date(call.created_at);
+                    const formattedDate = date.toLocaleString();
+                    
+                    // Format priority
+                    let priorityText = 'Normal';
+                    let priorityClass = 'text-primary';
+                    
+                    if (call.priority === 2) {
+                        priorityText = 'High';
+                        priorityClass = 'text-warning';
+                    } else if (call.priority === 3) {
+                        priorityText = 'Urgent';
+                        priorityClass = 'text-danger';
+                    }
+                    
+                    row.innerHTML = `
+                        <td>${call.phone_number}</td>
+                        <td>${call.contact_name || '-'}</td>
+                        <td><span class="${priorityClass}">${priorityText}</span></td>
+                        <td>${call.status}</td>
+                        <td>${formattedDate}</td>
+                        <td>${call.agent_name || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-danger delete-queue-btn" data-id="${call.id}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    
+                    queueTableBody.appendChild(row);
+                });
+                
+                // Add event listeners to delete buttons
+                document.querySelectorAll('.delete-queue-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const id = button.getAttribute('data-id');
+                        deleteQueueItem(id);
+                    });
+                });
+            } catch (error) {
+                console.error('Error loading queue data:', error);
+            }
+        }
+
+        // Add to queue
+        async function addToQueue() {
+            const phoneNumber = document.getElementById('queue-phone').value.trim();
+            const contactName = document.getElementById('queue-name').value.trim();
+            const notes = document.getElementById('queue-notes').value.trim();
+            const priority = document.getElementById('queue-priority').value;
+            
+            if (!phoneNumber) {
+                alert('Please enter a phone number');
+                return;
+            }
+            
+            try {
+                // Format phone number if needed
+                let formattedNumber = phoneNumber;
+                if (!formattedNumber.startsWith('+') && formattedNumber.replace(/\D/g, '').length === 10) {
+                    formattedNumber = `+1${formattedNumber.replace(/\D/g, '')}`;
+                }
+                
+                const response = await fetch('/api/call-queue', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        phone_number: formattedNumber,
+                        contact_name: contactName,
+                        notes,
+                        priority: parseInt(priority)
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to add call to queue');
+                }
+                
+                // Clear form
+                document.getElementById('queue-phone').value = '';
+                document.getElementById('queue-name').value = '';
+                document.getElementById('queue-notes').value = '';
+                document.getElementById('queue-priority').value = '1';
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addQueueModal'));
+                modal.hide();
+                
+                // Refresh queue data
+                loadQueueData();
+                loadDashboardData();
+                
+                alert('Call added to queue successfully');
+            } catch (error) {
+                console.error('Error adding call to queue:', error);
+                alert(`Error adding call to queue: ${error.message}`);
+            }
+        }
+
+        // Delete queue item
+        async function deleteQueueItem(id) {
+            if (!confirm('Are you sure you want to delete this queue item?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/call-queue/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to delete queue item');
+                }
+                
+                // Refresh queue data
+                loadQueueData();
+                loadDashboardData();
+                
+                alert('Queue item deleted successfully');
+            } catch (error) {
+                console.error('Error deleting queue item:', error);
+                alert(`Error deleting queue item: ${error.message}`);
+            }
+        }
+
+        // Load history data
+        async function loadHistoryData() {
+            try {
+                const response = await fetch('/api/call-history', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get call history');
+                }
+                
+                const data = await response.json();
+                
+                // Update history table
+                historyTableBody.innerHTML = '';
+                
+                data.history.forEach(call => {
+                    const row = document.createElement('tr');
+                    
+                    // Format date
+                    const date = new Date(call.start_time);
+                    const formattedDate = date.toLocaleString();
+                    
+                    // Format duration
+                    let formattedDuration = '-';
+                    if (call.duration) {
+                        const minutes = Math.floor(call.duration / 60).toString().padStart(2, '0');
+                        const seconds = (call.duration % 60).toString().padStart(2, '0');
+                        formattedDuration = `${minutes}:${seconds}`;
+                    }
+                    
+                    // Format direction
+                    const directionIcon = call.direction === 'outbound' ? 
+                        '<i class="bi bi-arrow-up-right text-success"></i>' : 
+                        '<i class="bi bi-arrow-down-left text-primary"></i>';
+                    
+                    row.innerHTML = `
+                        <td>${call.agent_name || call.username || '-'}</td>
+                        <td>${call.phone_number}</td>
+                        <td>${call.contact_name || '-'}</td>
+                        <td>${directionIcon} ${call.direction}</td>
+                        <td>${formattedDate}</td>
+                        <td>${formattedDuration}</td>
+                        <td>${call.call_status || '-'}</td>
+                    `;
+                    
+                    historyTableBody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading history data:', error);
+            }
+        }
+
+        // Load users data
+        async function loadUsersData() {
+            try {
+                const response = await fetch('/api/users', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get users');
+                }
+                
+                const data = await response.json();
+                
+                // Update users table
+                usersTableBody.innerHTML = '';
+                
+                data.users.forEach(user => {
+                    const row = document.createElement('tr');
+                    
+                    // Format date
+                    const date = new Date(user.created_at);
+                    const formattedDate = date.toLocaleString();
+                    
+                    row.innerHTML = `
+                        <td>${user.username}</td>
+                        <td>${user.full_name}</td>
+                        <td>${user.email}</td>
+                        <td>${user.role}</td>
+                        <td>${formattedDate}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary edit-user-btn" data-id="${user.id}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-warning reset-password-btn" data-id="${user.id}">
+                                <i class="bi bi-key"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger delete-user-btn" data-id="${user.id}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    
+                    usersTableBody.appendChild(row);
+                });
+                
+                // Add event listeners to user action buttons
+                document.querySelectorAll('.edit-user-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const id = button.getAttribute('data-id');
+                        editUser(id);
+                    });
+                });
+                
+                document.querySelectorAll('.reset-password-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const id = button.getAttribute('data-id');
+                        resetPassword(id);
+                    });
+                });
+                
+                document.querySelectorAll('.delete-user-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const id = button.getAttribute('data-id');
+                        deleteUser(id);
+                    });
+                });
+            } catch (error) {
+                console.error('Error loading users data:', error);
+            }
+        }
+
+        // Add user
+        async function addUser() {
+            const username = document.getElementById('user-username').value.trim();
+            const password = document.getElementById('user-password').value.trim();
+            const fullName = document.getElementById('user-fullname').value.trim();
+            const email = document.getElementById('user-email').value.trim();
+            const role = document.getElementById('user-role').value;
+            
+            if (!username || !password || !fullName || !email) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        username,
+                        password,
+                        full_name: fullName,
+                        email,
+                        role
+                    })
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Failed to add user');
+                }
+                
+                // Clear form
+                document.getElementById('user-username').value = '';
+                document.getElementById('user-password').value = '';
+                document.getElementById('user-fullname').value = '';
+                document.getElementById('user-email').value = '';
+                document.getElementById('user-role').value = 'agent';
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addUserModal'));
+                modal.hide();
+                
+                // Refresh users data
+                loadUsersData();
+                
+                alert('User added successfully');
+            } catch (error) {
+                console.error('Error adding user:', error);
+                alert(`Error adding user: ${error.message}`);
+            }
+        }
+
+        // Edit user (placeholder)
+        function editUser(id) {
+            alert(`Edit user with ID ${id} - This functionality is not implemented in this demo`);
+        }
+
+        // Reset password (placeholder)
+        function resetPassword(id) {
+            alert(`Reset password for user with ID ${id} - This functionality is not implemented in this demo`);
+        }
+
+        // Delete user (placeholder)
+        function deleteUser(id) {
+            alert(`Delete user with ID ${id} - This functionality is not implemented in this demo`);
+        }
+
+        // Load rules data
+        async function loadRulesData() {
+            try {
+                const response = await fetch('/api/rules', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get rules');
+                }
+                
+                const data = await response.json();
+                
+                // Update form fields with rules data
+                // New Lead Rule
+                document.getElementById('newLeadRuleEnabled').checked = data.rules.newLeadRule.enabled;
+                document.getElementById('newLeadPriority').value = data.rules.newLeadRule.priority;
+                
+                // No Answer Retry Rule
+                document.getElementById('noAnswerRetryEnabled').checked = data.rules.noAnswerRetryRule.enabled;
+                document.getElementById('retryDelayMinutes').value = data.rules.noAnswerRetryRule.retryDelayMinutes;
+                document.getElementById('maxRetries').value = data.rules.noAnswerRetryRule.maxRetries;
+                document.getElementById('respectCallCenterHours').checked = data.rules.noAnswerRetryRule.respectCallCenterHours;
+                
+                // Call Center Hours
+                document.getElementById('callCenterHoursEnabled').checked = data.rules.callCenterHours.enabled;
+                document.getElementById('timezone').value = data.rules.callCenterHours.timezone;
+                document.getElementById('startTime').value = data.rules.callCenterHours.startTime;
+                document.getElementById('endTime').value = data.rules.callCenterHours.endTime;
+                
+                // Work Days
+                const workDays = data.rules.callCenterHours.workDays;
+                document.querySelectorAll('.workday-check').forEach(checkbox => {
+                    const day = parseInt(checkbox.value);
+                    checkbox.checked = workDays.includes(day);
+                });
+            } catch (error) {
+                console.error('Error loading rules data:', error);
+                alert('Error loading rules. Using default values.');
+            }
+        }
+        
+        // Save rules
+        async function saveRules() {
+            try {
+                // Get work days
+                const workDays = [];
+                document.querySelectorAll('.workday-check:checked').forEach(checkbox => {
+                    workDays.push(parseInt(checkbox.value));
+                });
+                
+                // Build rules object
+                const rules = {
+                    newLeadRule: {
+                        enabled: document.getElementById('newLeadRuleEnabled').checked,
+                        priority: parseInt(document.getElementById('newLeadPriority').value)
+                    },
+                    noAnswerRetryRule: {
+                        enabled: document.getElementById('noAnswerRetryEnabled').checked,
+                        retryDelayMinutes: parseInt(document.getElementById('retryDelayMinutes').value),
+                        maxRetries: parseInt(document.getElementById('maxRetries').value),
+                        respectCallCenterHours: document.getElementById('respectCallCenterHours').checked
+                    },
+                    callCenterHours: {
+                        enabled: document.getElementById('callCenterHoursEnabled').checked,
+                        timezone: document.getElementById('timezone').value,
+                        startTime: document.getElementById('startTime').value,
+                        endTime: document.getElementById('endTime').value,
+                        workDays: workDays
+                    }
+                };
+                
+                // Send rules to server
+                const response = await fetch('/api/rules', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ rules })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to save rules');
+                }
+                
+                alert('Rules saved successfully');
+            } catch (error) {
+                console.error('Error saving rules:', error);
+                alert(`Error saving rules: ${error.message}`);
+            }
+        }
+
+        // Load dispositions data
+        async function loadDispositionsData() {
+            try {
+                const response = await fetch('/api/dispositions', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get dispositions');
+                }
+                
+                const data = await response.json();
+                
+                // Update dispositions table
+                dispositionsTableBody.innerHTML = '';
+                
+                data.dispositions.forEach(disposition => {
+                    const row = document.createElement('tr');
+                    
+                    // Format status
+                    const statusBadge = disposition.active ?
+                        '<span class="badge bg-success">Active</span>' :
+                        '<span class="badge bg-secondary">Inactive</span>';
+                    
+                    // Format final
+                    const finalBadge = disposition.is_final ?
+                        '<span class="badge bg-danger">Yes</span>' :
+                        '<span class="badge bg-info">No</span>';
+                    
+                    row.innerHTML = `
+                        <td>${disposition.name}</td>
+                        <td>${disposition.description || '-'}</td>
+                        <td>${finalBadge}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary edit-disposition-btn" data-id="${disposition.id}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger delete-disposition-btn" data-id="${disposition.id}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    
+                    dispositionsTableBody.appendChild(row);
+                });
+                
+                // Add event listeners to disposition action buttons
+                document.querySelectorAll('.edit-disposition-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const id = button.getAttribute('data-id');
+                        editDisposition(id);
+                    });
+                });
+                
+                document.querySelectorAll('.delete-disposition-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const id = button.getAttribute('data-id');
+                        deleteDisposition(id);
+                    });
+                });
+            } catch (error) {
+                console.error('Error loading dispositions data:', error);
+            }
+        }
+        
+        // Save disposition
+        async function saveDisposition() {
+            const id = document.getElementById('disposition-id').value.trim();
+            const name = document.getElementById('disposition-name').value.trim();
+            const description = document.getElementById('disposition-description').value.trim();
+            const isFinal = document.getElementById('disposition-is-final').checked;
+            const active = document.getElementById('disposition-active').checked;
+            
+            if (!name) {
+                alert('Please enter a disposition name');
+                return;
+            }
+            
+            try {
+                const url = id ? `/api/dispositions/${id}` : '/api/dispositions';
+                const method = id ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        name,
+                        description,
+                        is_final: isFinal,
+                        active
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to save disposition');
+                }
+                
+                // Clear form
+                document.getElementById('disposition-id').value = '';
+                document.getElementById('disposition-name').value = '';
+                document.getElementById('disposition-description').value = '';
+                document.getElementById('disposition-is-final').checked = false;
+                document.getElementById('disposition-active').checked = true;
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addDispositionModal'));
+                modal.hide();
+                
+                // Refresh dispositions data
+                loadDispositionsData();
+                
+                alert('Disposition saved successfully');
+            } catch (error) {
+                console.error('Error saving disposition:', error);
+                alert(`Error saving disposition: ${error.message}`);
+            }
+        }
+        
+        // Edit disposition
+        async function editDisposition(id) {
+            try {
+                const response = await fetch(`/api/dispositions/${id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get disposition');
+                }
+                
+                const disposition = await response.json();
+                
+                // Populate form
+                document.getElementById('disposition-id').value = disposition.id;
+                document.getElementById('disposition-name').value = disposition.name;
+                document.getElementById('disposition-description').value = disposition.description || '';
+                document.getElementById('disposition-is-final').checked = disposition.is_final;
+                document.getElementById('disposition-active').checked = disposition.active;
+                
+                // Update modal title
+                document.getElementById('addDispositionModalLabel').textContent = 'Edit Disposition';
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('addDispositionModal'));
+                modal.show();
+            } catch (error) {
+                console.error('Error editing disposition:', error);
+                alert(`Error editing disposition: ${error.message}`);
+            }
+        }
+        
+        // Delete disposition
+        async function deleteDisposition(id) {
+            if (!confirm('Are you sure you want to delete this disposition?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/dispositions/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to delete disposition');
+                }
+                
+                // Refresh dispositions data
+                loadDispositionsData();
+                
+                alert('Disposition deleted successfully');
+            } catch (error) {
+                console.error('Error deleting disposition:', error);
+                alert(`Error deleting disposition: ${error.message}`);
+            }
+        }
+
+        // Load workflows data
+        async function loadWorkflowsData() {
+            try {
+                const response = await fetch('/api/workflows', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to get workflows');
+                }
+                
+                const data = await response.json();
+                
+                // Update workflows table
+                const workflowsTableBody = document.getElementById('workflows-table-body');
+                workflowsTableBody.innerHTML = '';
+                
+                data.workflows.forEach(workflow => {
+                    const row = document.createElement('tr');
+                    
+                    // Format triggers
+                    let triggers = '';
+                    if (workflow.triggers && workflow.triggers.length > 0) {
+                        triggers = workflow.triggers.map(trigger => {
+                            let triggerText = 'Unknown';
+                            let triggerBadge = 'bg-secondary';
+                            
+                            if (trigger.type === 'new_lead') {
+                                triggerText = 'New Lead';
+                                triggerBadge = 'bg-success';
+                            } else if (trigger.type === 'call_disposition') {
+                                triggerText = 'Call Disposition';
+                                triggerBadge = 'bg-primary';
+                            } else if (trigger.type === 'scheduled') {
+                                triggerText = 'Scheduled';
+                                triggerBadge = 'bg-info';
+                            }
+                            
+                            return `<span class="badge ${triggerBadge}">${triggerText}</span>`;
+                        }).join(' ');
+                    }
+                    
+                    // Format status
+                    const statusBadge = workflow.active ?
+                        '<span class="badge bg-success">Active</span>' :
+                        '<span class="badge bg-secondary">Inactive</span>';
+                    
+                    // Count steps
+                    const stepCount = workflow.steps ? workflow.steps.length : 0;
+                    
+                    row.innerHTML = `
+                        <td>${workflow.name}</td>
+                        <td>${workflow.description || '-'}</td>
+                        <td>${triggers}</td>
+                        <td>${stepCount}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="/workflow-editor.html?id=${workflow.id}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-pencil"></i> Basic Editor
+                                </a>
+                                <a href="/workflow-editor-visual.html?id=${workflow.id}" class="btn btn-sm btn-success">
+                                    <i class="bi bi-diagram-3"></i> Visual Editor
+                                </a>
+                            </div>
+                            <button class="btn btn-sm btn-danger delete-workflow-btn" data-id="${workflow.id}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    
+                    workflowsTableBody.appendChild(row);
+                });
+                
+                // Add event listeners to workflow action buttons
+                document.querySelectorAll('.delete-workflow-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const id = button.getAttribute('data-id');
+                        deleteWorkflow(id);
+                    });
+                });
+                
+                // Add event listener to create workflow button
+                document.getElementById('create-workflow-btn').addEventListener('click', () => {
+                    createWorkflow();
+                });
+                
+            } catch (error) {
+                console.error('Error loading workflows data:', error);
+            }
+        }
+        
+        // Delete workflow
+        async function deleteWorkflow(id) {
+            if (!confirm('Are you sure you want to delete this workflow?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/workflows/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to delete workflow');
+                }
+                
+                // Refresh workflows data
+                loadWorkflowsData();
+                
+                alert('Workflow deleted successfully');
+            } catch (error) {
+                console.error('Error deleting workflow:', error);
+                alert(`Error deleting workflow: ${error.message}`);
+            }
+        }
+        
+        // Create workflow
+        async function createWorkflow() {
+            const name = document.getElementById('workflow-name').value.trim();
+            const description = document.getElementById('workflow-description').value.trim();
+            const triggerType = document.querySelector('input[name="trigger-type"]:checked').value;
+            
+            if (!name) {
+                alert('Please enter a workflow name');
+                return;
+            }
+            
+            try {
+                // Create basic workflow structure
+                const workflow = {
+                    name,
+                    description,
+                    triggers: [
+                        { type: triggerType, priority: 3 }
+                    ],
+                    steps: [
+                        {
+                            id: 'start',
+                            type: 'start',
+                            name: 'Start',
+                            isStart: true,
+                            next_step: 'end',
+                            position: { x: 100, y: 100 }
+                        },
+                        {
+                            id: 'end',
+                            type: 'end',
+                            name: 'End',
+                            position: { x: 400, y: 100 }
+                        }
+                    ],
+                    active: true
+                };
+                
+                const response = await fetch('/api/workflows', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(workflow)
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to create workflow');
+                }
+                
+                const data = await response.json();
+                
+                // Clear form
+                document.getElementById('workflow-name').value = '';
+                document.getElementById('workflow-description').value = '';
+                document.querySelector('input[name="trigger-type"][value="new_lead"]').checked = true;
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addWorkflowModal'));
+                modal.hide();
+                
+                // Redirect to workflow editor
+                window.location.href = `/workflow-editor.html?id=${data.workflow.id}`;
+            } catch (error) {
+                console.error('Error creating workflow:', error);
+                alert(`Error creating workflow: ${error.message}`);
+            }
+        }
+
+        // Logout
+        function logout() {
+            // Clear refresh interval
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+            
+            // Clear local storage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Redirect to login page
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+</html>

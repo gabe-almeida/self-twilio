@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twilio Dialer - Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 40px;
+            padding-bottom: 40px;
+        }
+        .login-container {
+            max-width: 400px;
+            padding: 15px;
+            margin: 0 auto;
+        }
+        .form-signin {
+            width: 100%;
+            max-width: 330px;
+            padding: 15px;
+            margin: auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .form-signin .form-floating:focus-within {
+            z-index: 2;
+        }
+        .form-signin input[type="text"] {
+            margin-bottom: -1px;
+            border-bottom-right-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+        .form-signin input[type="password"] {
+            margin-bottom: 10px;
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+        .logo {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+        }
+        .alert {
+            display: none;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body class="text-center">
+    <div class="login-container">
+        <form class="form-signin" id="login-form">
+            <img class="logo mb-4" src="https://www.twilio.com/assets/icons/twilio-icon-512.png" alt="Twilio Logo">
+            <h1 class="h3 mb-3 fw-normal">Twilio Dialer</h1>
+            <h2 class="h5 mb-3 fw-normal">Agent Login</h2>
+            
+            <div class="form-floating">
+                <input type="text" class="form-control" id="username" placeholder="Username" required>
+                <label for="username">Username</label>
+            </div>
+            <div class="form-floating">
+                <input type="password" class="form-control" id="password" placeholder="Password" required>
+                <label for="password">Password</label>
+            </div>
+            
+            <div class="alert alert-danger" id="error-message" role="alert"></div>
+            
+            <button class="w-100 btn btn-lg btn-primary" type="submit">Sign in</button>
+            <p class="mt-5 mb-3 text-muted">&copy; 2025 Twilio Dialer</p>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('login-form');
+            const errorMessage = document.getElementById('error-message');
+            
+            // Check for error parameters in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const errorParam = urlParams.get('error');
+            
+            if (errorParam) {
+                let errorText = '';
+                switch (errorParam) {
+                    case 'session_expired':
+                        errorText = 'Your session has expired. Please log in again.';
+                        break;
+                    case 'auth_error':
+                        errorText = 'Authentication error. Please log in again.';
+                        break;
+                    case 'init_error':
+                        errorText = 'Error initializing application. Please log in again.';
+                        break;
+                    default:
+                        errorText = 'An error occurred. Please log in again.';
+                }
+                
+                errorMessage.textContent = errorText;
+                errorMessage.style.display = 'block';
+                
+                // Remove error parameter from URL without reloading
+                window.history.replaceState({}, document.title, '/login.html');
+            }
+            
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                
+                if (!username || !password) {
+                    errorMessage.textContent = 'Username and password are required';
+                    errorMessage.style.display = 'block';
+                    return;
+                }
+                
+                try {
+                    // Hide any previous error messages
+                    errorMessage.style.display = 'none';
+                    
+                    // Disable submit button during login
+                    const submitButton = loginForm.querySelector('button[type="submit"]');
+                    const originalButtonText = submitButton.textContent;
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Signing in...';
+                    
+                    // Send login request
+                    const response = await fetch('/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Login failed');
+                    }
+                    
+                    // Store token and user info in localStorage
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    // Redirect based on role
+                    if (data.user.role === 'admin') {
+                        window.location.href = '/admin.html';
+                    } else {
+                        window.location.href = '/dashboard.html';
+                    }
+                } catch (error) {
+                    // Display error message
+                    errorMessage.textContent = error.message;
+                    errorMessage.style.display = 'block';
+                    
+                    // Re-enable submit button
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalButtonText;
+                }
+            });
+        });
+    </script>
+</body>
+</html>

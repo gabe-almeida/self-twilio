@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Editor Test (Simple)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: sans-serif;
+        }
+        .workflow-editor {
+            display: flex;
+            height: 500px;
+            border: 1px solid #dee2e6;
+            margin-top: 20px;
+        }
+        .sidebar {
+            width: 250px;
+            background-color: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .canvas-container {
+            flex-grow: 1;
+            position: relative;
+            background-color: #f5f5f5;
+        }
+        .properties-panel {
+            width: 300px;
+            background-color: #f8f9fa;
+            border-left: 1px solid #dee2e6;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .node-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .node-item:hover {
+            background-color: #e9ecef;
+        }
+        .workflow-node {
+            position: absolute;
+            border-radius: 5px;
+            padding: 10px;
+            width: 150px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: move;
+        }
+        .start-node {
+            background-color: #007bff;
+            color: white;
+        }
+        .call-node {
+            background-color: #28a745;
+            color: white;
+        }
+        .wait-node {
+            background-color: #ffc107;
+            color: black;
+        }
+        .condition-node {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .sms-node {
+            background-color: #6f42c1;
+            color: white;
+        }
+        .end-node {
+            background-color: #dc3545;
+            color: white;
+        }
+        #test-output {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            height: 200px;
+            overflow-y: auto;
+        }
+        .connector {
+            position: absolute;
+            height: 2px;
+            background-color: #6c757d;
+            transform-origin: left center;
+        }
+        .connector-arrow {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+            border-left: 10px solid #6c757d;
+            right: -10px;
+            top: -4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Simple Workflow Editor Test</h2>
+        <p>This is a simplified test of the workflow editor UI components.</p>
+        
+        <div class="btn-group mb-3">
+            <button id="test-drag-drop" class="btn btn-outline-primary">Add Test Node</button>
+            <button id="test-connections" class="btn btn-outline-primary">Add Test Connection</button>
+            <button id="test-properties" class="btn btn-outline-primary">Show Properties Panel</button>
+        </div>
+        
+        <div id="test-output">Test output will appear here</div>
+        
+        <div class="workflow-editor">
+            <div class="sidebar">
+                <h5>Elements</h5>
+                <div class="mb-3">
+                    <div class="node-item" data-node-type="call">
+                        <i class="bi bi-telephone"></i> Make Call
+                    </div>
+                    <div class="node-item" data-node-type="wait">
+                        <i class="bi bi-hourglass"></i> Wait
+                    </div>
+                    <div class="node-item" data-node-type="condition">
+                        <i class="bi bi-question-diamond"></i> Condition
+                    </div>
+                    <div class="node-item" data-node-type="sms">
+                        <i class="bi bi-chat"></i> Send SMS
+                    </div>
+                    <div class="node-item" data-node-type="end">
+                        <i class="bi bi-stop-circle"></i> End
+                    </div>
+                </div>
+            </div>
+
+            <div class="canvas-container" id="canvas">
+                <!-- Start node -->
+                <div class="workflow-node start-node" style="top: 50px; left: 50px;" id="start-node">
+                    <div class="node-header">
+                        <i class="bi bi-play-circle"></i> Start
+                    </div>
+                    <div class="node-content">Workflow starting point</div>
+                </div>
+                
+                <!-- Manual connections will be added here -->
+                <div id="connections-container"></div>
+            </div>
+
+            <div class="properties-panel" id="properties-panel">
+                <h5>Properties</h5>
+                <div class="alert alert-info">
+                    Select a node to edit its properties.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Counter for node IDs
+        let nodeCounter = 1;
+        let selectedNode = null;
+        const nodes = [
+            { id: 'start-node', type: 'start', label: 'Start', position: { x: 50, y: 50 } }
+        ];
+        const connections = [];
+        
+        // Test output function
+        function log(message) {
+            const output = document.getElementById('test-output');
+            const timestamp = new Date().toLocaleTimeString();
+            output.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Test environment initialized');
+            
+            // Set up node click handlers
+            setupNodeClickHandlers();
+            
+            // Set up test buttons
+            document.getElementById('test-drag-drop').addEventListener('click', addTestNode);
+            document.getElementById('test-connections').addEventListener('click', addTestConnection);
+            document.getElementById('test-properties').addEventListener('click', showTestProperties);
+            
+            // Set up node item click handlers
+            document.querySelectorAll('.node-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const nodeType = this.getAttribute('data-node-type');
+                    addNode(nodeType);
+                });
+            });
+        });
+        
+        // Add a new node to the canvas
+        function addNode(type) {
+            const id = `${type}-node-${nodeCounter++}`;
+            const label = `${type.charAt(0).toUpperCase() + type.slice(1)} Node`;
+            
+            // Calculate position (staggered from previous node)
+            const x = 200 + ((nodeCounter - 1) % 3) * 100;
+            const y = 50 + Math.floor((nodeCounter - 1) / 3) * 100;
+            
+            // Create node element
+            const nodeElement = document.createElement('div');
+            nodeElement.id = id;
+            nodeElement.className = `workflow-node ${type}-node`;
+            nodeElement.style.top = `${y}px`;
+            nodeElement.style.left = `${x}px`;
+            
+            // Add node content
+            nodeElement.innerHTML = `
+                <div class="node-header">
+                    <i class="bi bi-${getIconForType(type)}"></i> ${label}
+                </div>
+                <div class="node-content">${getContentForType(type)}</div>
+            `;
+            
+            // Make node draggable
+            nodeElement.setAttribute('draggable', 'true');
+            
+            // Add event listeners
+            nodeElement.addEventListener('dragstart', handleDragStart);
+            nodeElement.addEventListener('dragend', handleDragEnd);
+            nodeElement.addEventListener('click', function() {
+                selectNode(this);
+            });
+            
+            // Add node to canvas
+            document.getElementById('canvas').appendChild(nodeElement);
+            
+            // Add node to data model
+            nodes.push({
+                id: id,
+                type: type,
+                label: label,
+                position: { x, y }
+            });
+            
+            log(`Added ${type} node with ID: ${id}`);
+            
+            return id;
+        }
+        
+        // Get icon class for node type
+        function getIconForType(type) {
+            switch (type) {
+                case 'start': return 'play-circle';
+                case 'call': return 'telephone';
+                case 'wait': return 'hourglass';
+                case 'condition': return 'question-diamond';
+                case 'sms': return 'chat';
+                case 'end': return 'stop-circle';
+                default: return 'box';
+            }
+        }
+        
+        // Get content text for node type
+        function getContentForType(type) {
+            switch (type) {
+                case 'start': return 'Workflow starting point';
+                case 'call': return 'Make a call (Priority: Normal)';
+                case 'wait': return 'Wait for 30 minutes';
+                case 'condition': return 'If condition is met';
+                case 'sms': return 'Send SMS message';
+                case 'end': return 'Workflow complete';
+                default: return 'Step';
+            }
+        }
+        
+        // Handle drag start
+        function handleDragStart(event) {
+            const nodeId = this.id;
+            event.dataTransfer.setData('text/plain', nodeId);
+            log(`Dragging node: ${nodeId}`);
+        }
+        
+        // Handle drag end
+        function handleDragEnd(event) {
+            const nodeId = this.id;
+            const node = nodes.find(n => n.id === nodeId);
+            if (node) {
+                // Update position in data model
+                node.position.x = parseInt(this.style.left);
+                node.position.y = parseInt(this.style.top);
+                log(`Node ${nodeId} moved to position (${node.position.x}, ${node.position.y})`);
+                
+                // Update connections
+                updateConnections();
+            }
+        }
+        
+        // Set up click handlers for existing nodes
+        function setupNodeClickHandlers() {
+            document.querySelectorAll('.workflow-node').forEach(node => {
+                node.addEventListener('click', function() {
+                    selectNode(this);
+                });
+            });
+        }
+        
+        // Select a node
+        function selectNode(element) {
+            // Deselect previously selected node
+            if (selectedNode) {
+                document.getElementById(selectedNode.id).classList.remove('selected');
+            }
+            
+            // Select new node
+            element.classList.add('selected');
+            
+            // Find node in data model
+            const nodeId = element.id;
+            selectedNode = nodes.find(n => n.id === nodeId);
+            
+            log(`Selected node: ${nodeId} (${selectedNode.type})`);
+            
+            // Show properties
+            showNodeProperties(selectedNode);
+        }
+        
+        // Show node properties
+        function showNodeProperties(node) {
+            const propertiesContainer = document.getElementById('properties-panel');
+            propertiesContainer.innerHTML = '';
+            
+            // Create properties panel
+            const title = document.createElement('h5');
+            title.textContent = 'Properties';
+            propertiesContainer.appendChild(title);
+            
+            // Add node info
+            const nodeInfo = document.createElement('div');
+            nodeInfo.className = 'alert alert-primary';
+            nodeInfo.innerHTML = `
+                <strong>Node ID:</strong> ${node.id}<br>
+                <strong>Type:</strong> ${node.type}<br>
+                <strong>Position:</strong> (${node.position.x}, ${node.position.y})
+            `;
+            propertiesContainer.appendChild(nodeInfo);
+            
+            // Add form for editable properties
+            const form = document.createElement('form');
+            
+            // Add name field
+            const nameGroup = document.createElement('div');
+            nameGroup.className = 'mb-3';
+            
+            const nameLabel = document.createElement('label');
+            nameLabel.className = 'form-label';
+            nameLabel.htmlFor = 'node-name';
+            nameLabel.textContent = 'Name';
+            
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.className = 'form-control';
+            nameInput.id = 'node-name';
+            nameInput.value = node.label || '';
+            
+            nameGroup.appendChild(nameLabel);
+            nameGroup.appendChild(nameInput);
+            form.appendChild(nameGroup);
+            
+            // Add type-specific fields
+            switch (node.type) {
+                case 'call':
+                    // Priority field
+                    const priorityGroup = document.createElement('div');
+                    priorityGroup.className = 'mb-3';
+                    
+                    const priorityLabel = document.createElement('label');
+                    priorityLabel.className = 'form-label';
+                    priorityLabel.htmlFor = 'call-priority';
+                    priorityLabel.textContent = 'Priority';
+                    
+                    const prioritySelect = document.createElement('select');
+                    prioritySelect.className = 'form-select';
+                    prioritySelect.id = 'call-priority';
+                    
+                    ['Normal', 'High', 'Urgent'].forEach((priority, index) => {
+                        const option = document.createElement('option');
+                        option.value = index + 1;
+                        option.textContent = priority;
+                        option.selected = (node.priority === index + 1);
+                        prioritySelect.appendChild(option);
+                    });
+                    
+                    priorityGroup.appendChild(priorityLabel);
+                    priorityGroup.appendChild(prioritySelect);
+                    form.appendChild(priorityGroup);
+                    break;
+                    
+                case 'wait':
+                    // Minutes field
+                    const minutesGroup = document.createElement('div');
+                    minutesGroup.className = 'mb-3';
+                    
+                    const minutesLabel = document.createElement('label');
+                    minutesLabel.className = 'form-label';
+                    minutesLabel.htmlFor = 'wait-minutes';
+                    minutesLabel.textContent = 'Minutes';
+                    
+                    const minutesInput = document.createElement('input');
+                    minutesInput.type = 'number';
+                    minutesInput.className = 'form-control';
+                    minutesInput.id = 'wait-minutes';
+                    minutesInput.min = '1';
+                    minutesInput.value = node.minutes || 30;
+                    
+                    minutesGroup.appendChild(minutesLabel);
+                    minutesGroup.appendChild(minutesInput);
+                    form.appendChild(minutesGroup);
+                    
+                    // Respect business hours checkbox
+                    const respectHoursGroup = document.createElement('div');
+                    respectHoursGroup.className = 'form-check mb-3';
+                    
+                    const respectHoursInput = document.createElement('input');
+                    respectHoursInput.type = 'checkbox';
+                    respectHoursInput.className = 'form-check-input';
+                    respectHoursInput.id = 'respect-hours';
+                    respectHoursInput.checked = node.respectHours || false;
+                    
+                    const respectHoursLabel = document.createElement('label');
+                    respectHoursLabel.className = 'form-check-label';
+                    respectHoursLabel.htmlFor = 'respect-hours';
+                    respectHoursLabel.textContent = 'Respect Business Hours';
+                    
+                    respectHoursGroup.appendChild(respectHoursInput);
+                    respectHoursGroup.appendChild(respectHoursLabel);
+                    form.appendChild(respectHoursGroup);
+                    break;
+                    
+                case 'condition':
+                    // Field selector
+                    const fieldGroup = document.createElement('div');
+                    fieldGroup.className = 'mb-3';
+                    
+                    const fieldLabel = document.createElement('label');
+                    fieldLabel.className = 'form-label';
+                    fieldLabel.htmlFor = 'condition-field';
+                    fieldLabel.textContent = 'Field';
+                    
+                    const fieldSelect = document.createElement('select');
+                    fieldSelect.className = 'form-select';
+                    fieldSelect.id = 'condition-field';
+                    
+                    ['Call Disposition', 'Lead Priority'].forEach((field, index) => {
+                        const option = document.createElement('option');
+                        option.value = index === 0 ? 'call.disposition' : 'lead.priority';
+                        option.textContent = field;
+                        option.selected = (node.field === option.value);
+                        fieldSelect.appendChild(option);
+                    });
+                    
+                    fieldGroup.appendChild(fieldLabel);
+                    fieldGroup.appendChild(fieldSelect);
+                    form.appendChild(fieldGroup);
+                    break;
+                    
+                case 'sms':
+                    // Message field
+                    const messageGroup = document.createElement('div');
+                    messageGroup.className = 'mb-3';
+                    
+                    const messageLabel = document.createElement('label');
+                    messageLabel.className = 'form-label';
+                    messageLabel.htmlFor = 'sms-message';
+                    messageLabel.textContent = 'Message';
+                    
+                    const messageTextarea = document.createElement('textarea');
+                    messageTextarea.className = 'form-control';
+                    messageTextarea.id = 'sms-message';
+                    messageTextarea.rows = 3;
+                    messageTextarea.value = node.message || '';
+                    
+                    messageGroup.appendChild(messageLabel);
+                    messageGroup.appendChild(messageTextarea);
+                    form.appendChild(messageGroup);
+                    break;
+            }
+            
+            // Add update button for editable nodes
+            if (node.type !== 'start' && node.type !== 'end') {
+                const updateButton = document.createElement('button');
+                updateButton.type = 'button';
+                updateButton.className = 'btn btn-primary';
+                updateButton.textContent = 'Update Properties';
+                updateButton.addEventListener('click', function() {
+                    updateNodeProperties(node);
+                });
+                form.appendChild(updateButton);
+            }
+            
+            // Add connection section
+            const connectionTitle = document.createElement('h6');
+            connectionTitle.className = 'mt-4';
+            connectionTitle.textContent = 'Create Connection';
+            form.appendChild(connectionTitle);
+            
+            const connectionGroup = document.createElement('div');
+            connectionGroup.className = 'mb-3';
+            
+            const targetLabel = document.createElement('label');
+            targetLabel.className = 'form-label';
+            targetLabel.htmlFor = 'target-node';
+            targetLabel.textContent = 'Connect To';
+            
+            const targetSelect = document.createElement('select');
+            targetSelect.className = 'form-select';
+            targetSelect.id = 'target-node';
+            
+            // Add option for no connection
+            const noOption = document.createElement('option');
+            noOption.value = '';
+            noOption.textContent = '-- Select Node --';
+            targetSelect.appendChild(noOption);
+            
+            // Add all nodes except self
+            nodes.filter(n => n.id !== node.id).forEach(n => {
+                const option = document.createElement('option');
+                option.value = n.id;
+                option.textContent = `${n.label} (${n.type})`;
+                targetSelect.appendChild(option);
+            });
+            
+            connectionGroup.appendChild(targetLabel);
+            connectionGroup.appendChild(targetSelect);
+            form.appendChild(connectionGroup);
+            
+            const connectButton = document.createElement('button');
+            connectButton.type = 'button';
+            connectButton.className = 'btn btn-outline-primary';
+            connectButton.textContent = 'Create Connection';
+            connectButton.addEventListener('click', function() {
+                const targetId = targetSelect.value;
+                if (targetId) {
+                    createConnection(node.id, targetId);
+                }
+            });
+            form.appendChild(connectButton);
+            
+            propertiesContainer.appendChild(form);
+        }
+        
+        // Update node properties
+        function updateNodeProperties(node) {
+            // Update common properties
+            node.label = document.getElementById('node-name').value || node.label;
+            
+            // Update specific properties based on node type
+            switch (node.type) {
+                case 'call':
+                    node.priority = parseInt(document.getElementById('call-priority').value);
+                    break;
+                    
+                case 'wait':
+                    node.minutes = parseInt(document.getElementById('wait-minutes').value);
+                    node.respectHours = document.getElementById('respect-hours').checked;
+                    break;
+                    
+                case 'condition':
+                    node.field = document.getElementById('condition-field').value;
+                    break;
+                    
+                case 'sms':
+                    node.message = document.getElementById('sms-message').value;
+                    break;
+            }
+            
+            // Update node element
+            const element = document.getElementById(node.id);
+            if (element) {
+                // Update label
+                const headerElement = element.querySelector('.node-header');
+                if (headerElement) {
+                    headerElement.innerHTML = `<i class="bi bi-${getIconForType(node.type)}"></i> ${node.label}`;
+                }
+                
+                // Update content based on type
+                const contentElement = element.querySelector('.node-content');
+                if (contentElement) {
+                    let content = '';
+                    switch (node.type) {
+                        case 'call':
+                            content = `Priority: ${['Normal', 'High', 'Urgent'][node.priority - 1] || 'Normal'}`;
+                            break;
+                        case 'wait':
+                            content = `Wait for ${node.minutes || 30} minutes`;
+                            if (node.respectHours) content += ' (respecting hours)';
+                            break;
+                        case 'condition':
+                            content = `If ${node.field || 'condition'} is met`;
+                            break;
+                        case 'sms':
+                            content = node.message ? 
+                                `"${node.message.substring(0, 20)}${node.message.length > 20 ? '...' : ''}"` : 
+                                'Send SMS message';
+                            break;
+                        default:
+                            content = getContentForType(node.type);
+                    }
+                    contentElement.textContent = content;
+                }
+            }
+            
+            log(`Updated properties for node ${node.id}`);
+        }
+        
+        // Create a connection between two nodes
+        function createConnection(sourceId, targetId) {
+            // Check if connection already exists
+            if (connections.some(c => c.source === sourceId && c.target === targetId)) {
+                log(`Connection from ${sourceId} to ${targetId} already exists`);
+                return;
+            }
+            
+            // Find source and target nodes
+            const sourceNode = nodes.find(n => n.id === sourceId);
+            const targetNode = nodes.find(n => n.id === targetId);
+            
+            if (!sourceNode || !targetNode) {
+                log('Error: Source or target node not found');
+                return;
+            }
+            
+            // Create connection
+            const connectionId = `conn-${sourceId}-${targetId}`;
+            connections.push({
+                id: connectionId,
+                source: sourceId,
+                target: targetId
+            });
+            
+            // Draw connection
+            drawConnection(sourceNode, targetNode, connectionId);
+            
+            log(`Created connection from ${sourceId} to ${targetId}`);
+        }
+        
+        // Draw a connection between two nodes
+        function drawConnection(source, target, connectionId) {
+            // Get source and target elements
+            const sourceElement = document.getElementById(source.id);
+            const targetElement = document.getElementById(target.id);
+            
+            if (!sourceElement || !targetElement) {
+                log('Error: Cannot draw connection, elements not found');
+                return;
+            }
+            
+            // Calculate positions
+            const sourceRect = sourceElement.getBoundingClientRect();
+            const targetRect = targetElement.getBoundingClientRect();
+            const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+            
+            // Calculate center points relative to canvas
+            const sourceX = sourceRect.left - canvasRect.left + sourceRect.width / 2;
+            const sourceY = sourceRect.top - canvasRect.top + sourceRect.height / 2;
+            const targetX = targetRect.left - canvasRect.left + targetRect.width / 2;
+            const targetY = targetRect.top - canvasRect.top + targetRect.height / 2;
+            
+            // Calculate distance and angle
+            const dx = targetX - sourceX;
+            const dy = targetY - sourceY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            
+            // Create connection line
+            const connectionLine = document.createElement('div');
+            connectionLine.id = connectionId;
+            connectionLine.className = 'connector';
+            connectionLine.style.width = `${distance}px`;
+            connectionLine.style.left = `${sourceX}px`;
+            connectionLine.style.top = `${sourceY}px`;
+            connectionLine.style.transform = `rotate(${angle}deg)`;
+            
+            // Add arrow
+            const arrow = document.createElement('div');
+            arrow.className = 'connector-arrow';
+            connectionLine.appendChild(arrow);
+            
+            // Add to canvas
+            document.getElementById('connections-container').appendChild(connectionLine);
+        }
+        
+        // Update all connections
+        function updateConnections() {
+            // Clear existing connection elements
+            const container = document.getElementById('connections-container');
+            container.innerHTML = '';
+            
+            // Redraw all connections
+            connections.forEach(conn => {
+                const sourceNode = nodes.find(n => n.id === conn.source);
+                const targetNode = nodes.find(n => n.id === conn.target);
+                
+                if (sourceNode && targetNode) {
+                    drawConnection(sourceNode, targetNode, conn.id);
+                }
+            });
+        }
+        
+        // Test functions
+        function addTestNode() {
+            const types = ['call', 'wait', 'condition', 'sms', 'end'];
+            const randomType = types[Math.floor(Math.random() * types.length)];
+            const nodeId = addNode(randomType);
+            log(`Added test ${randomType} node with ID ${nodeId}`);
+        }
+        
+        function addTestConnection() {
+            if (nodes.length < 2) {
+                log('Need at least 2 nodes to create a connection');
+                return;
+            }
+            
+            // Find two random nodes
+            const availableNodes = nodes.filter(n => n.type !== 'end');
+            if (availableNodes.length === 0) {
+                log('No suitable source nodes found');
+                return;
+            }
+            
+            const source = availableNodes[Math.floor(Math.random() * availableNodes.length)];
+            const targets = nodes.filter(n => n.id !== source.id);
+            if (targets.length === 0) {
+                log('No suitable target nodes found');
+                return;
+            }
+            
+            const target = targets[Math.floor(Math.random() * targets.length)];
+            
+            // Create connection
+            createConnection(source.id, target.id);
+        }
+        
+        function showTestProperties() {
+            if (nodes.length === 0) {
+                log('No nodes available to show properties');
+                return;
+            }
+            
+            // Select a random node
+            const node = nodes[Math.floor(Math.random() * nodes.length)];
+            const element = document.getElementById(node.id);
+            
+            if (element) {
+                selectNode(element);
+                log(`Showing properties for ${node.id}`);
+            }
+        }
+    </script>
+</body>
+</html>

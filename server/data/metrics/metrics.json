@@ -1,0 +1,36 @@
+[
+  {
+    "timestamp": "2025-03-09T23:55:12.867Z",
+    "system": {
+      "startTime": "2025-03-09T21:37:12.261Z",
+      "uptime": 0,
+      "callsProcessed": 0,
+      "callsSucceeded": 0,
+      "callsFailed": 0,
+      "callsPerMinute": 0,
+      "agentsAvailable": 0,
+      "queuedCalls": 0,
+      "avgWaitTime": 0,
+      "avgCallDuration": 0,
+      "lastUpdated": "2025-03-09T21:37:12.261Z"
+    },
+    "agents": {}
+  },
+  {
+    "timestamp": "2025-03-10T00:55:13.501Z",
+    "system": {
+      "startTime": "2025-03-09T21:37:12.261Z",
+      "uptime": 0,
+      "callsProcessed": 0,
+      "callsSucceeded": 0,
+      "callsFailed": 0,
+      "callsPerMinute": 0,
+      "agentsAvailable": 0,
+      "queuedCalls": 0,
+      "avgWaitTime": 0,
+      "avgCallDuration": 0,
+      "lastUpdated": "2025-03-09T21:37:12.261Z"
+    },
+    "agents": {}
+  }
+]

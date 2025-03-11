@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twilio Dialer - Visual Workflow Editor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <!-- React Flow CSS -->
+    <link href="https://unpkg.com/reactflow/dist/style.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+            height: 100vh;
+        }
+        .workflow-editor {
+            display: flex;
+            height: calc(100vh - 56px);
+        }
+        .sidebar {
+            width: 250px;
+            background-color: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .canvas-container {
+            flex-grow: 1;
+            position: relative;
+        }
+        .properties-panel {
+            width: 300px;
+            background-color: #f8f9fa;
+            border-left: 1px solid #dee2e6;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .node-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: grab;
+        }
+        .node-item:hover {
+            background-color: #e9ecef;
+        }
+        .react-flow__node {
+            padding: 10px;
+            border-radius: 5px;
+            width: 150px;
+            font-size: 12px;
+            text-align: center;
+        }
+        .react-flow__node-start {
+            background-color: #007bff;
+            color: white;
+        }
+        .react-flow__node-call {
+            background-color: #28a745;
+            color: white;
+        }
+        .react-flow__node-wait {
+            background-color: #ffc107;
+            color: black;
+        }
+        .react-flow__node-condition {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .react-flow__node-sms {
+            background-color: #6f42c1;
+            color: white;
+        }
+        .react-flow__node-end {
+            background-color: #dc3545;
+            color: white;
+        }
+        .custom-node {
+            border-radius: 5px;
+            padding: 10px;
+            width: 150px;
+        }
+        .node-header {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .node-header i {
+            margin-right: 5px;
+        }
+        .node-content {
+            font-size: 10px;
+            text-align: center;
+        }
+        .node-port {
+            height: 10px;
+            width: 10px;
+            background-color: #fff;
+            border: 1px solid #000;
+            border-radius: 50%;
+            cursor: pointer;
+            position: absolute;
+        }
+        .node-port-out {
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .node-port-true {
+            bottom: -5px;
+            left: 25%;
+            transform: translateX(-50%);
+        }
+        .node-port-false {
+            bottom: -5px;
+            left: 75%;
+            transform: translateX(-50%);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Twilio Dialer Visual Workflow Editor</a>
+            <div class="d-flex align-items-center">
+                <button class="btn btn-outline-light me-2" id="save-workflow-btn">
+                    <i class="bi bi-save"></i> Save
+                </button>
+                <button class="btn btn-outline-light me-2" id="back-btn">
+                    <i class="bi bi-arrow-left"></i> Back
+                </button>
+                <div class="dropdown ms-3">
+                    <button class="btn btn-outline-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle"></i> <span id="user-name">Admin</span>
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item" href="#" id="logout-link"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="workflow-editor">
+        <div class="sidebar">
+            <h5>Elements</h5>
+            <div class="mb-3">
+                <h6>Triggers</h6>
+                <div class="node-item" data-node-type="new_lead_trigger">
+                    <i class="bi bi-person-plus"></i> New Lead Trigger
+                </div>
+                <div class="node-item" data-node-type="disposition_trigger">
+                    <i class="bi bi-telephone-x"></i> Call Disposition Trigger
+                </div>
+                <div class="node-item" data-node-type="scheduled_trigger">
+                    <i class="bi bi-calendar"></i> Scheduled Trigger
+                </div>
+                
+                <h6 class="mt-3">Actions</h6>
+                <div class="node-item" data-node-type="call">
+                    <i class="bi bi-telephone"></i> Make Call
+                </div>
+                <div class="node-item" data-node-type="sms">
+                    <i class="bi bi-chat"></i> Send SMS
+                </div>
+                <div class="node-item" data-node-type="update_record">
+                    <i class="bi bi-pencil"></i> Update Record
+                </div>
+                
+                <h6 class="mt-3">Flow Control</h6>
+                <div class="node-item" data-node-type="wait">
+                    <i class="bi bi-hourglass"></i> Wait
+                </div>
+                <div class="node-item" data-node-type="condition">
+                    <i class="bi bi-question-diamond"></i> Generic Condition
+                </div>
+                <div class="node-item" data-node-type="disposition_condition">
+                    <i class="bi bi-telephone-check"></i> Disposition Condition
+                </div>
+                <div class="node-item" data-node-type="time_condition">
+                    <i class="bi bi-clock"></i> Time Condition
+                </div>
+                <div class="node-item" data-node-type="branch">
+                    <i class="bi bi-diagram-3"></i> Branch
+                </div>
+                <div class="node-item" data-node-type="end">
+                    <i class="bi bi-stop-circle"></i> End
+                </div>
+            </div>
+            <h5>Workflow Settings</h5>
+            <div class="mb-3">
+                <label for="workflow-name" class="form-label">Name</label>
+                <input type="text" class="form-control" id="workflow-name">
+            </div>
+            <div class="mb-3">
+                <label for="workflow-description" class="form-label">Description</label>
+                <textarea class="form-control" id="workflow-description" rows="2"></textarea>
+            </div>
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="workflow-active">
+                <label class="form-check-label" for="workflow-active">Active</label>
+            </div>
+            <div class="mb-3">
+                <h6>Business Hours</h6>
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="business-hours-enabled" checked>
+                    <label class="form-check-label" for="business-hours-enabled">Enable</label>
+                </div>
+                <select class="form-select form-select-sm mb-2" id="timezone">
+                    <option value="America/New_York" selected>Eastern Time (ET)</option>
+                    <option value="America/Chicago">Central Time (CT)</option>
+                    <option value="America/Denver">Mountain Time (MT)</option>
+                    <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                </select>
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <input type="time" class="form-control form-control-sm" id="start-time" value="09:00">
+                    </div>
+                    <div class="col-6">
+                        <input type="time" class="form-control form-control-sm" id="end-time" value="17:00">
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap">
+                    <div class="form-check me-2">
+                        <input class="form-check-input workday-check" type="checkbox" value="0" id="sunday">
+                        <label class="form-check-label" for="sunday">Su</label>
+                    </div>
+                    <div class="form-check me-2">
+                        <input class="form-check-input workday-check" type="checkbox" value="1" id="monday" checked>
+                        <label class="form-check-label" for="monday">Mo</label>
+                    </div>
+                    <div class="form-check me-2">
+                        <input class="form-check-input workday-check" type="checkbox" value="2" id="tuesday" checked>
+                        <label class="form-check-label" for="tuesday">Tu</label>
+                    </div>
+                    <div class="form-check me-2">
+                        <input class="form-check-input workday-check" type="checkbox" value="3" id="wednesday" checked>
+                        <label class="form-check-label" for="wednesday">We</label>
+                    </div>
+                    <div class="form-check me-2">
+                        <input class="form-check-input workday-check" type="checkbox" value="4" id="thursday" checked>
+                        <label class="form-check-label" for="thursday">Th</label>
+                    </div>
+                    <div class="form-check me-2">
+                        <input class="form-check-input workday-check" type="checkbox" value="5" id="friday" checked>
+                        <label class="form-check-label" for="friday">Fr</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input workday-check" type="checkbox" value="6" id="saturday">
+                        <label class="form-check-label" for="saturday">Sa</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="canvas-container" id="react-flow-canvas"></div>
+
+        <div class="properties-panel" id="properties-panel">
+            <h5>Properties</h5>
+            <div class="alert alert-info">
+                Select a node to edit its properties.
+            </div>
+        </div>
+    </div>
+
+    <!-- React and React Flow -->
+    <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/reactflow/dist/reactflow.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Global variables
+        let token;
+        let user;
+        let workflowId;
+        let workflow;
+        let reactFlowInstance;
+        let selectedNode;
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Check if user is logged in
+                token = localStorage.getItem('token');
+                const userJson = localStorage.getItem('user');
+                
+                if (!token || !userJson) {
+                    // Redirect to login page if not logged in
+                    window.location.href = '/login.html';
+                    return;
+                }
+                
+                // Validate token by making a request to check authentication
+                try {
+                    const authCheckResponse = await fetch('/auth/profile', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (!authCheckResponse.ok) {
+                        // Token is invalid or expired
+                        console.error('Authentication token is invalid or expired');
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                        window.location.href = '/login.html?error=session_expired';
+                        return;
+                    }
+                } catch (authError) {
+                    console.error('Error validating authentication:', authError);
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login.html?error=auth_error';
+                    return;
+                }
+                
+                user = JSON.parse(userJson);
+                
+                // Check if user is admin
+                if (user.role !== 'admin') {
+                    alert('You do not have permission to access the workflow editor');
+                    window.location.href = '/dashboard.html';
+                    return;
+                }
+                
+                document.getElementById('user-name').textContent = user.full_name || user.username;
+                
+                // Get workflow ID from URL
+                const urlParams = new URLSearchParams(window.location.search);
+                workflowId = urlParams.get('id');
+                
+                if (workflowId) {
+                    // Load existing workflow
+                    await loadWorkflow(workflowId);
+                } else {
+                    // Create new workflow template
+                    createNewWorkflowTemplate();
+                }
+                
+                // Initialize React Flow
+                initReactFlow();
+                
+                // Set up event listeners
+                setupEventListeners();
+            } catch (error) {
+                console.error('Error initializing application:', error);
+                alert('Error initializing application. Please try logging in again.');
+                // Redirect to login page after a short delay
+                setTimeout(() => {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login.html?error=init_error';
+                }, 2000);
+            }
+        });
+        
+        // Initialize React Flow
+        function initReactFlow() {
+            // Create React Flow container
+            const container = document.getElementById('react-flow-canvas');
+            
+            // Initialize React Flow
+            const ReactFlow = window.ReactFlow.default;
+            const { Background, Controls, MiniMap } = window.ReactFlow;
+            
+            // Create React Flow instance
+            reactFlowInstance = ReactFlow.createReactFlowInstance({
+                container,
+                nodes: convertWorkflowToNodes(workflow),
+                edges: convertWorkflowToEdges(workflow),
+                nodeTypes: {
+                    start: StartNode,
+                    // Triggers
+                    new_lead_trigger: NewLeadTriggerNode,
+                    disposition_trigger: DispositionTriggerNode,
+                    scheduled_trigger: ScheduledTriggerNode,
+                    // Actions
+                    call: CallNode,
+                    sms: SmsNode,
+                    update_record: UpdateRecordNode,
+                    // Flow Control
+                    wait: WaitNode,
+                    condition: ConditionNode,
+                    disposition_condition: DispositionConditionNode,
+                    time_condition: TimeConditionNode,
+                    branch: BranchNode,
+                    end: EndNode
+                },
+                onNodeClick: handleNodeClick,
+                onConnect: handleConnect,
+                onNodeDragStop: handleNodeDragStop,
+                onDrop: handleDrop,
+                onDragOver: handleDragOver
+            });
+            
+            // Add background, controls, and mini map
+            ReactFlow.addReactFlowComponents(reactFlowInstance, {
+                background: Background,
+                controls: Controls,
+                miniMap: MiniMap
+            });
+        }
+        
+        // Custom node components
+        function StartNode({ data }) {
+            return React.createElement('div', { className: 'custom-node start-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-play-circle' }),
+                    data.label
+                ),
+                React.createElement('div', { className: 'node-content' }, 'Workflow starting point')
+            );
+        }
+        
+        function CallNode({ data }) {
+            return React.createElement('div', { className: 'custom-node call-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-telephone' }),
+                    data.label
+                ),
+                React.createElement('div', { className: 'node-content' }, `Priority: ${data.priority || 'Normal'}`)
+            );
+        }
+        
+        function WaitNode({ data }) {
+            return React.createElement('div', { className: 'custom-node wait-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-hourglass' }),
+                    data.label
+                ),
+                React.createElement('div', { className: 'node-content' }, 
+                    `Wait for ${data.minutes || 30} minutes ${data.respectHours ? '(respecting hours)' : ''}`)
+            );
+        }
+        
+        function ConditionNode({ data }) {
+            return React.createElement('div', { className: 'custom-node condition-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-question-diamond' }),
+                    data.label
+                ),
+                React.createElement('div', { className: 'node-content' }, 
+                    `If ${data.field || ''} ${data.operator || ''} ${data.value || ''}`)
+            );
+        }
+        
+        function SmsNode({ data }) {
+            return React.createElement('div', { className: 'custom-node sms-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-chat' }),
+                    data.label
+                ),
+                React.createElement('div', { className: 'node-content' }, 'Send SMS message')
+            );
+        }
+        
+        function EndNode({ data }) {
+            return React.createElement('div', { className: 'custom-node end-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-stop-circle' }),
+                    data.label
+                ),
+                React.createElement('div', { className: 'node-content' }, 'Workflow complete')
+            );
+        }
+        
+        // Trigger node components
+        function NewLeadTriggerNode({ data }) {
+            return React.createElement('div', { className: 'custom-node trigger-node new-lead-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-person-plus' }),
+                    data.label
+                ),
+                React.createElement('div', { className: 'node-content' },
+                    `Priority: ${data.priority || 'Normal'}`)
+            );
+        }
+        
+        function DispositionTriggerNode({ data }) {
+            return React.createElement('div', { className: 'custom-node trigger-node disposition-trigger-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-telephone-x' }),
+                    data.label
+                ),
+                React.createElement('div', { className: 'node-content' },
+                    `Disposition: ${data.disposition || 'Any'}`)
+            );
+        }
+        
+        function ScheduledTriggerNode({ data }) {
+            return React.createElement('div', { className: 'custom-node trigger-node scheduled-trigger-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-calendar' }),
+                    data.label
+                ),
+                React.createElement('div', { className: 'node-content' },
+                    `Schedule: ${data.schedule || 'Not set'}`)
+            );
+        }
+        
+        // Additional action node components
+        function UpdateRecordNode({ data }) {
+            return React.createElement('div', { className: 'custom-node action-node update-record-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-pencil' }),
+                    data.label
+                ),
+                React.createElement('div', { className: 'node-content' },
+                    `Fields: ${data.fields ? Object.keys(data.fields).length : 0} to update`)
+            );
+        }
+        
+        // Specialized condition node components
+        function DispositionConditionNode({ data }) {
+            return React.createElement('div', { className: 'custom-node condition-node disposition-condition-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-telephone-check' }),
+                    data.label
+                ),
+                React.createElement('div', { className: 'node-content' },
+                    `${data.disposition || 'Any'} = ${data.value || 'Not set'}`)
+            );
+        }
+        
+        function TimeConditionNode({ data }) {
+            return React.createElement('div', { className: 'custom-node condition-node time-condition-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-clock' }),
+                    data.label
+                ),
+                React.createElement('div', { className: 'node-content' },
+                    `Between ${data.startTime || '00:00'} and ${data.endTime || '23:59'}`)
+            );
+        }
+        
+        function BranchNode({ data }) {
+            return React.createElement('div', { className: 'custom-node flow-node branch-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-diagram-3' }),
+                    data.label
+                ),
+                React.createElement('div', { className: 'node-content' },
+                    `${data.condition || 'No condition set'}`)
+            );
+        }
+        
+        // Set up event listeners
+        function setupEventListeners() {
+            // Back button
+            document.getElementById('back-btn').addEventListener('click', () => {
+                window.location.href = '/admin.html';
+            });
+            
+            // Logout link
+            document.getElementById('logout-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                logout();
+            });
+            
+            // Save workflow button
+            document.getElementById('save-workflow-btn').addEventListener('click', () => {
+                saveWorkflow();
+            });
+            
+            // Make elements draggable
+            document.querySelectorAll('.node-item').forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+                item.setAttribute('draggable', 'true');
+            });
+        }
+        
+        // Handle drag start
+        function handleDragStart(event) {
+            const nodeType = event.target.getAttribute('data-node-type');
+            event.dataTransfer.setData('application/reactflow', nodeType);
+            event.dataTransfer.effectAllowed = 'move';
+        }
+        
+        // Handle drag over
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+        }
+        
+        // Handle drop
+        function handleDrop(event) {
+            event.preventDefault();
+            
+            const reactFlowBounds = document.getElementById('react-flow-canvas').getBoundingClientRect();
+            const type = event.dataTransfer.getData('application/reactflow');
+            
+            // Get position
+            const position = reactFlowInstance.project({
+                x: event.clientX - reactFlowBounds.left,
+                y: event.clientY - reactFlowBounds.top
+            });
+            
+            // Create new node
+            const newNode = {
+                id: `${type}_${Date.now()}`,
+                type,
+                position,
+                data: { label: `${type.charAt(0).toUpperCase() + type.slice(1)} Step` }
+            };
+            
+            // Add node to React Flow
+            const newNodes = [...reactFlowInstance.getNodes(), newNode];
+            reactFlowInstance.setNodes(newNodes);
+            
+            // Update workflow
+            updateWorkflowFromFlow();
+        }
+        
+        // Handle node click
+        function handleNodeClick(event, node) {
+            selectedNode = node;
+            showNodeProperties(node);
+        }
+        
+        // Handle connect
+        function handleConnect(params) {
+            // Create new edge
+            const newEdge = {
+                id: `e${params.source}-${params.target}`,
+                source: params.source,
+                target: params.target,
+                type: 'smoothstep'
+            };
+            
+            // Add edge to React Flow
+            const newEdges = [...reactFlowInstance.getEdges(), newEdge];
+            reactFlowInstance.setEdges(newEdges);
+            
+            // Update workflow
+            updateWorkflowFromFlow();
+        }
+        
+        // Handle node drag stop
+        function handleNodeDragStop(event, node) {
+            // Update node position in workflow
+            const workflowStep = workflow.steps.find(step => step.id === node.id);
+            if (workflowStep) {
+                workflowStep.position = node.position;
+            }
+        }
+        
+        // Show node properties
+        function showNodeProperties(node) {
+            const propertiesContainer = document.getElementById('properties-panel');
+            propertiesContainer.innerHTML = '';
+            
+            // Create properties form based on node type
+            const title = document.createElement('h5');
+            title.textContent = 'Properties';
+            propertiesContainer.appendChild(title);
+            
+            const form = document.createElement('form');
+            form.id = 'node-properties-form';
+            
+            // Add common fields
+            const nameGroup = document.createElement('div');
+            nameGroup.className = 'mb-3';
+            
+            const nameLabel = document.createElement('label');
+            nameLabel.className = 'form-label';
+            nameLabel.htmlFor = 'node-name';
+            nameLabel.textContent = 'Name';
+            
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.className = 'form-control';
+            nameInput.id = 'node-name';
+            nameInput.value = node.data.label;
+            
+            nameGroup.appendChild(nameLabel);
+            nameGroup.appendChild(nameInput);
+            form.appendChild(nameGroup);
+            
+            // Add type-specific fields
+            switch (node.type) {
+                case 'start':
+                    const startInfo = document.createElement('div');
+                    startInfo.className = 'alert alert-info';
+                    startInfo.textContent = 'This is the starting point of your workflow.';
+                    form.appendChild(startInfo);
+                    break;
+                
+                // Trigger Nodes
+                case 'new_lead_trigger':
+                    const leadPriorityGroup = document.createElement('div');
+                    leadPriorityGroup.className = 'mb-3';
+                    
+                    const leadPriorityLabel = document.createElement('label');
+                    leadPriorityLabel.className = 'form-label';
+                    leadPriorityLabel.htmlFor = 'lead-priority';
+                    leadPriorityLabel.textContent = 'Lead Priority';
+                    
+                    const leadPrioritySelect = document.createElement('select');
+                    leadPrioritySelect.className = 'form-select';
+                    leadPrioritySelect.id = 'lead-priority';
+                    
+                    const lpOption1 = document.createElement('option');
+                    lpOption1.value = '1';
+                    lpOption1.textContent = 'Low';
+                    lpOption1.selected = node.data.priority === 1;
+                    
+                    const lpOption2 = document.createElement('option');
+                    lpOption2.value = '2';
+                    lpOption2.textContent = 'Medium';
+                    lpOption2.selected = node.data.priority === 2;
+                    
+                    const lpOption3 = document.createElement('option');
+                    lpOption3.value = '3';
+                    lpOption3.textContent = 'High';
+                    lpOption3.selected = node.data.priority === 3;
+                    
+                    leadPrioritySelect.appendChild(lpOption1);
+                    leadPrioritySelect.appendChild(lpOption2);
+                    leadPrioritySelect.appendChild(lpOption3);
+                    
+                    leadPriorityGroup.appendChild(leadPriorityLabel);
+                    leadPriorityGroup.appendChild(leadPrioritySelect);
+                    form.appendChild(leadPriorityGroup);
+                    break;
+                    
+                case 'disposition_trigger':
+                    const dispGroup = document.createElement('div');
+                    dispGroup.className = 'mb-3';
+                    
+                    const dispLabel = document.createElement('label');
+                    dispLabel.className = 'form-label';
+                    dispLabel.htmlFor = 'disposition-type';
+                    dispLabel.textContent = 'Disposition Type';
+                    
+                    const dispSelect = document.createElement('select');
+                    dispSelect.className = 'form-select';
+                    dispSelect.id = 'disposition-type';
+                    
+                    const dispositions = [
+                        { value: 'any', text: 'Any' },
+                        { value: 'answered', text: 'Answered' },
+                        { value: 'busy', text: 'Busy' },
+                        { value: 'no-answer', text: 'No Answer' },
+                        { value: 'failed', text: 'Failed' },
+                        { value: 'voicemail', text: 'Voicemail' }
+                    ];
+                    
+                    dispositions.forEach(disp => {
+                        const option = document.createElement('option');
+                        option.value = disp.value;
+                        option.textContent = disp.text;
+                        option.selected = node.data.disposition === disp.value;
+                        dispSelect.appendChild(option);
+                    });
+                    
+                    dispGroup.appendChild(dispLabel);
+                    dispGroup.appendChild(dispSelect);
+                    form.appendChild(dispGroup);
+                    break;
+                    
+                case 'scheduled_trigger':
+                    const scheduleGroup = document.createElement('div');
+                    scheduleGroup.className = 'mb-3';
+                    
+                    const scheduleLabel = document.createElement('label');
+                    scheduleLabel.className = 'form-label';
+                    scheduleLabel.htmlFor = 'schedule-time';
+                    scheduleLabel.textContent = 'Schedule Time';
+                    
+                    const scheduleTimeInput = document.createElement('input');
+                    scheduleTimeInput.type = 'time';
+                    scheduleTimeInput.className = 'form-control mb-2';
+                    scheduleTimeInput.id = 'schedule-time';
+                    scheduleTimeInput.value = node.data.scheduleTime || '09:00';
+                    
+                    const repeatGroup = document.createElement('div');
+                    repeatGroup.className = 'mb-3';
+                    
+                    const repeatLabel = document.createElement('label');
+                    repeatLabel.className = 'form-label';
+                    repeatLabel.htmlFor = 'repeat-type';
+                    repeatLabel.textContent = 'Repeat';
+                    
+                    const repeatSelect = document.createElement('select');
+                    repeatSelect.className = 'form-select';
+                    repeatSelect.id = 'repeat-type';
+                    
+                    const repeatOptions = [
+                        { value: 'once', text: 'Once' },
+                        { value: 'daily', text: 'Daily' },
+                        { value: 'weekdays', text: 'Weekdays' },
+                        { value: 'weekly', text: 'Weekly' },
+                        { value: 'monthly', text: 'Monthly' }
+                    ];
+                    
+                    repeatOptions.forEach(opt => {
+                        const option = document.createElement('option');
+                        option.value = opt.value;
+                        option.textContent = opt.text;
+                        option.selected = node.data.repeatType === opt.value;
+                        repeatSelect.appendChild(option);
+                    });
+                    
+                    scheduleGroup.appendChild(scheduleLabel);
+                    scheduleGroup.appendChild(scheduleTimeInput);
+                    repeatGroup.appendChild(repeatLabel);
+                    repeatGroup.appendChild(repeatSelect);
+                    
+                    form.appendChild(scheduleGroup);
+                    form.appendChild(repeatGroup);
+                    break;
+                
+                // Action Nodes
+                case 'call':
+                    const priorityGroup = document.createElement('div');
+                    priorityGroup.className = 'mb-3';
+                    
+                    const priorityLabel = document.createElement('label');
+                    priorityLabel.className = 'form-label';
+                    priorityLabel.htmlFor = 'call-priority';
+                    priorityLabel.textContent = 'Call Priority';
+                    
+                    const prioritySelect = document.createElement('select');
+                    prioritySelect.className = 'form-select';
+                    prioritySelect.id = 'call-priority';
+                    
+                    const option1 = document.createElement('option');
+                    option1.value = '1';
+                    option1.textContent = 'Normal';
+                    option1.selected = node.data.priority === 1;
+                    
+                    const option2 = document.createElement('option');
+                    option2.value = '2';
+                    option2.textContent = 'High';
+                    option2.selected = node.data.priority === 2;
+                    
+                    const option3 = document.createElement('option');
+                    option3.value = '3';
+                    option3.textContent = 'Urgent';
+                    option3.selected = node.data.priority === 3;
+                    
+                    prioritySelect.appendChild(option1);
+                    prioritySelect.appendChild(option2);
+                    prioritySelect.appendChild(option3);
+                    
+                    priorityGroup.appendChild(priorityLabel);
+                    priorityGroup.appendChild(prioritySelect);
+                    form.appendChild(priorityGroup);
+                    break;
+                    
+                case 'wait':
+                    const minutesGroup = document.createElement('div');
+                    minutesGroup.className = 'mb-3';
+                    
+                    const minutesLabel = document.createElement('label');
+                    minutesLabel.className = 'form-label';
+                    minutesLabel.htmlFor = 'wait-minutes';
+                    minutesLabel.textContent = 'Wait Time (minutes)';
+                    
+                    const minutesInput = document.createElement('input');
+                    minutesInput.type = 'number';
+                    minutesInput.className = 'form-control';
+                    minutesInput.id = 'wait-minutes';
+                    minutesInput.min = '1';
+                    minutesInput.value = node.data.minutes || 30;
+                    
+                    minutesGroup.appendChild(minutesLabel);
+                    minutesGroup.appendChild(minutesInput);
+                    form.appendChild(minutesGroup);
+                    
+                    const respectHoursGroup = document.createElement('div');
+                    respectHoursGroup.className = 'form-check mb-3';
+                    
+                    const respectHoursInput = document.createElement('input');
+                    respectHoursInput.type = 'checkbox';
+                    respectHoursInput.className = 'form-check-input';
+                    respectHoursInput.id = 'respect-hours';
+                    respectHoursInput.checked = node.data.respectHours;
+                    
+                    const respectHoursLabel = document.createElement('label');
+                    respectHoursLabel.className = 'form-check-label';
+                    respectHoursLabel.htmlFor = 'respect-hours';
+                    respectHoursLabel.textContent = 'Respect Business Hours';
+                    
+                    respectHoursGroup.appendChild(respectHoursInput);
+                    respectHoursGroup.appendChild(respectHoursLabel);
+                    form.appendChild(respectHoursGroup);
+                    break;
+                    
+                case 'condition':
+                    const fieldGroup = document.createElement('div');
+                    fieldGroup.className = 'mb-3';
+                    
+                    const fieldLabel = document.createElement('label');
+                    fieldLabel.className = 'form-label';
+                    fieldLabel.htmlFor = 'condition-field';
+                    fieldLabel.textContent = 'Field';
+                    
+                    const fieldSelect = document.createElement('select');
+                    fieldSelect.className = 'form-select';
+                    fieldSelect.id = 'condition-field';
+                    
+                    const fieldOption1 = document.createElement('option');
+                    fieldOption1.value = 'call.disposition';
+                    fieldOption1.textContent = 'Call Disposition';
+                    fieldOption1.selected = node.data.field === 'call.disposition';
+                    
+                    const fieldOption2 = document.createElement('option');
+                    fieldOption2.value = 'lead.priority';
+                    fieldOption2.textContent = 'Lead Priority';
+                    fieldOption2.selected = node.data.field === 'lead.priority';
+                    
+                    fieldSelect.appendChild(fieldOption1);
+                    fieldSelect.appendChild(fieldOption2);
+                    
+                    fieldGroup.appendChild(fieldLabel);
+                    fieldGroup.appendChild(fieldSelect);
+                    form.appendChild(fieldGroup);
+                    
+                    const operatorGroup = document.createElement('div');
+                    operatorGroup.className = 'mb-3';
+                    
+                    const operatorLabel = document.createElement('label');
+                    operatorLabel.className = 'form-label';
+                    operatorLabel.htmlFor = 'condition-operator';
+                    operatorLabel.textContent = 'Operator';
+                    
+                    const operatorSelect = document.createElement('select');
+                    operatorSelect.className = 'form-select';
+                    operatorSelect.id = 'condition-operator';
+                    
+                    const operatorOption1 = document.createElement('option');
+                    operatorOption1.value = 'equals';
+                    operatorOption1.textContent = 'Equals';
+                    operatorOption1.selected = node.data.operator === 'equals';
+                    
+                    const operatorOption2 = document.createElement('option');
+                    operatorOption2.value = 'not_equals';
+                    operatorOption2.textContent = 'Not Equals';
+                    operatorOption2.selected = node.data.operator === 'not_equals';
+                    
+                    const operatorOption3 = document.createElement('option');
+                    operatorOption3.value = 'contains';
+                    operatorOption3.textContent = 'Contains';
+                    operatorOption3.selected = node.data.operator === 'contains';
+                    
+                    operatorSelect.appendChild(operatorOption1);
+                    operatorSelect.appendChild(operatorOption2);
+                    operatorSelect.appendChild(operatorOption3);
+                    
+                    operatorGroup.appendChild(operatorLabel);
+                    operatorGroup.appendChild(operatorSelect);
+                    form.appendChild(operatorGroup);
+                    
+                    const valueGroup = document.createElement('div');
+                    valueGroup.className = 'mb-3';
+                    
+                    const valueLabel = document.createElement('label');
+                    valueLabel.className = 'form-label';
+                    valueLabel.htmlFor = 'condition-value';
+                    valueLabel.textContent = 'Value';
+                    
+                    const valueInput = document.createElement('input');
+                    valueInput.type = 'text';
+                    valueInput.className = 'form-control';
+                    valueInput.id = 'condition-value';
+                    valueInput.value = node.data.value || '';
+                    
+                    valueGroup.appendChild(valueLabel);
+                    valueGroup.appendChild(valueInput);
+                    form.appendChild(valueGroup);
+                    break;
+                    
+                case 'sms':
+                    const messageGroup = document.createElement('div');
+                    messageGroup.className = 'mb-3';
+                    
+                    const messageLabel = document.createElement('label');
+                    messageLabel.className = 'form-label';
+                    messageLabel.htmlFor = 'sms-message';
+                    messageLabel.textContent = 'Message';
+                    
+                    const messageTextarea = document.createElement('textarea');
+                    messageTextarea.className = 'form-control';
+                    messageTextarea.id = 'sms-message';
+                    messageTextarea.rows = 3;
+                    messageTextarea.value = node.data.message || '';
+                    
+                    messageGroup.appendChild(messageLabel);
+                    messageGroup.appendChild(messageTextarea);
+                    form.appendChild(messageGroup);
+                    break;
+                    
+                case 'end':
+                    const endInfo = document.createElement('div');
+                    endInfo.className = 'alert alert-info';
+                    endInfo.textContent = 'This is the end of your workflow. No further steps will be executed after this.';
+                    form.appendChild(endInfo);
+                    break;
+            }
+            
+            // Add update button for editable nodes
+            if (node.type !== 'start' && node.type !== 'end') {
+                const updateButton = document.createElement('button');
+                updateButton.type = 'button';
+                updateButton.className = 'btn btn-primary';
+                updateButton.textContent = 'Update Properties';
+                updateButton.addEventListener('click', () => updateNodeProperties(node));
+                form.appendChild(updateButton);
+            }
+            
+            propertiesContainer.appendChild(form);
+        }
+        
+        // Update node properties
+        function updateNodeProperties(node) {
+            // Update node name
+            const name = document.getElementById('node-name').value.trim();
+            node.data.label = name;
+            
+            // Update type-specific properties
+            switch (node.type) {
+                // Trigger nodes
+                case 'new_lead_trigger':
+                    node.data.priority = parseInt(document.getElementById('lead-priority').value);
+                    break;
+                    
+                case 'disposition_trigger':
+                    node.data.disposition = document.getElementById('disposition-type').value;
+                    break;
+                    
+                case 'scheduled_trigger':
+                    node.data.scheduleTime = document.getElementById('schedule-time').value;
+                    node.data.repeatType = document.getElementById('repeat-type').value;
+                    break;
+                
+                // Action nodes
+                case 'call':
+                    node.data.priority = parseInt(document.getElementById('call-priority').value);
+                    break;
+                    
+                case 'sms':
+                    node.data.message = document.getElementById('sms-message').value;
+                    break;
+                    
+                case 'update_record':
+                    // Get fields from form
+                    const fields = {};
+                    document.querySelectorAll('.record-field-group').forEach(group => {
+                        const fieldName = group.querySelector('.field-name').value;
+                        const fieldValue = group.querySelector('.field-value').value;
+                        if (fieldName && fieldValue) {
+                            fields[fieldName] = fieldValue;
+                        }
+                    });
+                    node.data.fields = fields;
+                    break;
+                
+                // Flow control nodes
+                case 'wait':
+                    node.data.minutes = parseInt(document.getElementById('wait-minutes').value);
+                    node.data.respectHours = document.getElementById('respect-hours').checked;
+                    break;
+                    
+                case 'condition':
+                    node.data.field = document.getElementById('condition-field').value;
+                    node.data.operator = document.getElementById('condition-operator').value;
+                    node.data.value = document.getElementById('condition-value').value;
+                    break;
+                    
+                case 'disposition_condition':
+                    node.data.disposition = document.getElementById('disp-condition-type').value;
+                    node.data.value = document.getElementById('disp-condition-value').value;
+                    break;
+                    
+                case 'time_condition':
+                    node.data.startTime = document.getElementById('time-start').value;
+                    node.data.endTime = document.getElementById('time-end').value;
+                    break;
+                    
+                case 'branch':
+                    node.data.condition = document.getElementById('branch-condition').value;
+                    break;
+            }
+            
+            // Update node in React Flow
+            const nodes = reactFlowInstance.getNodes().map(n => {
+                if (n.id === node.id) {
+                    return { ...n, data: node.data };
+                }
+                return n;
+            });
+            
+            reactFlowInstance.setNodes(nodes);
+            
+            // Update workflow
+            updateWorkflowFromFlow();
+            
+            alert('Node properties updated');
+        }
+        
+        // Load workflow
+        async function loadWorkflow(id) {
+            try {
+                console.log(`Loading workflow with ID: ${id}`);
+                
+                // Check if token is valid
+                if (!token) {
+                    throw new Error('Authentication token is missing');
+                }
+                
+                const response = await fetch(`/api/workflows/${id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                // Handle different HTTP error responses
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Authentication failed. Please log in again.');
+                    } else if (response.status === 403) {
+                        throw new Error('You do not have permission to access this workflow.');
+                    } else if (response.status === 404) {
+                        throw new Error('Workflow not found. It may have been deleted.');
+                    } else {
+                        throw new Error(`Failed to get workflow: ${response.status} ${response.statusText}`);
+                    }
+                }
+                
+                const data = await response.json();
+                
+                if (!data || !data.workflow) {
+                    throw new Error('Invalid workflow data received from server');
+                }
+                
+                workflow = data.workflow;
+                console.log('Workflow loaded successfully:', workflow.name);
+                
+                // Update UI with workflow data
+                document.getElementById('workflow-name').value = workflow.name || 'Untitled Workflow';
+                document.getElementById('workflow-description').value = workflow.description || '';
+                document.getElementById('workflow-active').checked = !!workflow.active;
+                
+                // Update business hours
+                if (workflow.business_hours) {
+                    document.getElementById('business-hours-enabled').checked = !!workflow.business_hours.enabled;
+                    
+                    if (workflow.business_hours.timezone) {
+                        document.getElementById('timezone').value = workflow.business_hours.timezone;
+                    }
+                    
+                    if (workflow.business_hours.start_time) {
+                        document.getElementById('start-time').value = workflow.business_hours.start_time;
+                    }
+                    
+                    if (workflow.business_hours.end_time) {
+                        document.getElementById('end-time').value = workflow.business_hours.end_time;
+                    }
+                    
+                    // Update work days
+                    if (Array.isArray(workflow.business_hours.days)) {
+                        document.querySelectorAll('.workday-check').forEach(checkbox => {
+                            const day = parseInt(checkbox.value);
+                            checkbox.checked = workflow.business_hours.days.includes(day);
+                        });
+                    }
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Error loading workflow:', error);
+                alert(`Error loading workflow: ${error.message}`);
+                
+                // If authentication error, redirect to login
+                if (error.message.includes('Authentication') || error.message.includes('permission')) {
+                    setTimeout(() => {
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                        window.location.href = '/login.html?error=auth_error';
+                    }, 2000);
+                }
+                
+                return false;
+            }
+        }
+        
+        // Create new workflow template
+        function createNewWorkflowTemplate() {
+            workflow = {
+                name: 'New Workflow',
+                description: '',
+                active: false,
+                triggers: [
+                    { type: 'new_lead', priority: 3 }
+                ],
+                steps: [
+                    {
+                        id: 'start',
+                        type: 'start',
+                        name: 'Start',
+                        isStart: true,
+                        next_step: 'end',
+                        position: { x: 100, y: 100 }
+                    },
+                    {
+                        id: 'end',
+                        type: 'end',
+                        name: 'End',
+                        position: { x: 400, y: 100 }
+                    }
+                ],
+                business_hours: {
+                    enabled: true,
+                    timezone: 'America/New_York',
+                    days: [1, 2, 3, 4, 5],
+                    start_time: '09:00',
+                    end_time: '17:00'
+                }
+            };
+            
+            // Update UI with workflow data
+            document.getElementById('workflow-name').value = workflow.name;
+            document.getElementById('workflow-description').value = workflow.description;
+            document.getElementById('workflow-active').checked = workflow.active;
+        }
+        
+        // Convert workflow to React Flow nodes
+        function convertWorkflowToNodes(workflow) {
+            if (!workflow || !workflow.steps) return [];
+            
+            return workflow.steps.map(step => {
+                const node = {
+                    id: step.id,
+                    type: step.type,
+                    position: step.position || { x: 0, y: 0 },
+                    data: { label: step.name }
+                };
+                
+                // Add type-specific data
+                switch (step.type) {
+                    case 'call':
+                        node.data.priority = step.properties?.priority || 1;
+                        break;
+                    case 'wait':
+                        node.data.minutes = step.properties?.minutes || 30;
+                        node.data.respectHours = step.properties?.respect_hours || false;
+                        break;
+                    case 'condition':
+                        node.data.field = step.condition?.field || '';
+                        node.data.operator = step.condition?.operator || '';
+                        node.data.value = step.condition?.value || '';
+                        break;
+                    case 'sms':
+                        node.data.message = step.properties?.message || '';
+                        break;
+                }
+                
+                return node;
+            });
+        }
+        
+        // Convert workflow to React Flow edges
+        function convertWorkflowToEdges(workflow) {
+            if (!workflow || !workflow.steps) return [];
+            
+            const edges = [];
+            
+            workflow.steps.forEach(step => {
+                if (step.next_step) {
+                    edges.push({
+                        id: `e${step.id}-${step.next_step}`,
+                        source: step.id,
+                        target: step.next_step,
+                        type: 'smoothstep'
+                    });
+                }
+                
+                if (step.true_branch) {
+                    edges.push({
+                        id: `e${step.id}-${step.true_branch}-true`,
+                        source: step.id,
+                        target: step.true_branch,
+                        sourceHandle: 'true',
+                        type: 'smoothstep'
+                    });
+                }
+                
+                if (step.false_branch) {
+                    edges.push({
+                        id: `e${step.id}-${step.false_branch}-false`,
+                        source: step.id,
+                        target: step.false_branch,
+                        sourceHandle: 'false',
+                        type: 'smoothstep'
+                    });
+                }
+            });
+            
+            return edges;
+        }
+        
+        // Update workflow from React Flow
+        function updateWorkflowFromFlow() {
+            const nodes = reactFlowInstance.getNodes();
+            const edges = reactFlowInstance.getEdges();
+            
+            // Update steps
+            workflow.steps = nodes.map(node => {
+                const step = {
+                    id: node.id,
+                    type: node.type,
+                    name: node.data.label,
+                    position: node.position
+                };
+                
+                // Add type-specific properties
+                switch (node.type) {
+                    case 'start':
+                        step.isStart = true;
+                        break;
+                    case 'call':
+                        step.properties = {
+                            priority: node.data.priority || 1
+                        };
+                        break;
+                    case 'wait':
+                        step.properties = {
+                            minutes: node.data.minutes || 30,
+                            respect_hours: node.data.respectHours || false
+                        };
+                        break;
+                    case 'condition':
+                        step.condition = {
+                            field: node.data.field || '',
+                            operator: node.data.operator || '',
+                            value: node.data.value || ''
+                        };
+                        break;
+                    case 'sms':
+                        step.properties = {
+                            message: node.data.message || ''
+                        };
+                        break;
+                }
+                
+                return step;
+            });
+            
+            // Update connections
+            edges.forEach(edge => {
+                const sourceStep = workflow.steps.find(step => step.id === edge.source);
+                
+                if (sourceStep) {
+                    if (sourceStep.type === 'condition') {
+                        if (edge.sourceHandle === 'true') {
+                            sourceStep.true_branch = edge.target;
+                        } else if (edge.sourceHandle === 'false') {
+                            sourceStep.false_branch = edge.target;
+                        } else {
+                            sourceStep.next_step = edge.target;
+                        }
+                    } else {
+                        sourceStep.next_step = edge.target;
+                    }
+                }
+            });
+        }
+        
+        // Save workflow
+        async function saveWorkflow() {
+            try {
+                // Check if token is valid
+                if (!token) {
+                    throw new Error('Authentication token is missing. Please log in again.');
+                }
+                
+                // Validate workflow data
+                const name = document.getElementById('workflow-name').value.trim();
+                if (!name) {
+                    alert('Please enter a workflow name');
+                    document.getElementById('workflow-name').focus();
+                    return;
+                }
+                
+                // Show saving indicator
+                const saveBtn = document.getElementById('save-workflow-btn');
+                const originalBtnText = saveBtn.innerHTML;
+                saveBtn.innerHTML = '<i class="bi bi-hourglass"></i> Saving...';
+                saveBtn.disabled = true;
+                
+                // Update workflow data from form
+                workflow.name = name;
+                workflow.description = document.getElementById('workflow-description').value.trim();
+                workflow.active = document.getElementById('workflow-active').checked;
+                
+                // Update business hours
+                workflow.business_hours = {
+                    enabled: document.getElementById('business-hours-enabled').checked,
+                    timezone: document.getElementById('timezone').value,
+                    start_time: document.getElementById('start-time').value,
+                    end_time: document.getElementById('end-time').value,
+                    days: []
+                };
+                
+                // Get selected work days
+                document.querySelectorAll('.workday-check:checked').forEach(checkbox => {
+                    workflow.business_hours.days.push(parseInt(checkbox.value));
+                });
+                
+                // Validate workflow structure
+                if (!workflow.steps || !Array.isArray(workflow.steps) || workflow.steps.length < 2) {
+                    throw new Error('Workflow must have at least a start and end step');
+                }
+                
+                // Ensure there's a start step
+                const hasStartStep = workflow.steps.some(step => step.type === 'start');
+                if (!hasStartStep) {
+                    throw new Error('Workflow must have a start step');
+                }
+                
+                // Send to server
+                const url = workflowId ?
+                    `/api/workflows/${workflowId}` :
+                    '/api/workflows';
+                
+                const method = workflowId ? 'PUT' : 'POST';
+                
+                console.log(`Saving workflow to ${url} using ${method}`);
+                
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(workflow)
+                });
+                
+                // Handle different HTTP error responses
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Authentication failed. Please log in again.');
+                    } else if (response.status === 403) {
+                        throw new Error('You do not have permission to save this workflow.');
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || `Failed to save workflow: ${response.status} ${response.statusText}`);
+                    }
+                }
+                
+                const data = await response.json();
+                
+                if (!data || !data.workflow) {
+                    throw new Error('Invalid response from server');
+                }
+                
+                // Update workflow ID if new
+                if (!workflowId) {
+                    workflowId = data.workflow.id;
+                    // Update URL without reloading
+                    window.history.pushState({}, '', `/workflow-editor-visual.html?id=${workflowId}`);
+                }
+                
+                // Update workflow object with server data
+                workflow = data.workflow;
+                
+                // Show success message
+                alert('Workflow saved successfully');
+                
+                // Reset button
+                saveBtn.innerHTML = originalBtnText;
+                saveBtn.disabled = false;
+                
+                return true;
+            } catch (error) {
+                console.error('Error saving workflow:', error);
+                alert(`Error saving workflow: ${error.message}`);
+                
+                // Reset save button
+                const saveBtn = document.getElementById('save-workflow-btn');
+                saveBtn.innerHTML = '<i class="bi bi-save"></i> Save';
+                saveBtn.disabled = false;
+                
+                // If authentication error, redirect to login
+                if (error.message.includes('Authentication') || error.message.includes('permission')) {
+                    setTimeout(() => {
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                        window.location.href = '/login.html?error=auth_error';
+                    }, 2000);
+                }
+                
+                return false;
+            }
+        }
+        
+        // Logout
+        function logout() {
+            // Clear local storage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Redirect to login page
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Editor Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <!-- React Flow CSS -->
+    <link href="https://unpkg.com/reactflow/dist/style.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+            height: 100vh;
+        }
+        .workflow-editor {
+            display: flex;
+            height: calc(100vh - 56px);
+        }
+        .sidebar {
+            width: 250px;
+            background-color: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .canvas-container {
+            flex-grow: 1;
+            position: relative;
+            background-color: #f5f5f5;
+        }
+        .properties-panel {
+            width: 300px;
+            background-color: #f8f9fa;
+            border-left: 1px solid #dee2e6;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        .node-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: grab;
+        }
+        .node-item:hover {
+            background-color: #e9ecef;
+        }
+        .custom-node {
+            border-radius: 5px;
+            padding: 10px;
+            width: 150px;
+        }
+        .node-header {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .node-header i {
+            margin-right: 5px;
+        }
+        .node-content {
+            font-size: 10px;
+            text-align: center;
+        }
+        .start-node {
+            background-color: #007bff;
+            color: white;
+        }
+        .call-node {
+            background-color: #28a745;
+            color: white;
+        }
+        .wait-node {
+            background-color: #ffc107;
+            color: black;
+        }
+        .condition-node {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .sms-node {
+            background-color: #6f42c1;
+            color: white;
+        }
+        .end-node {
+            background-color: #dc3545;
+            color: white;
+        }
+        #test-output {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Workflow Editor UI Test</a>
+        </div>
+    </nav>
+
+    <div class="container mt-3">
+        <h2>Visual Workflow Editor Test</h2>
+        <p>This is a standalone test of the visual workflow editor UI components.</p>
+        
+        <div class="btn-group mb-3">
+            <button id="test-drag-drop" class="btn btn-outline-primary">Test Drag & Drop</button>
+            <button id="test-node-props" class="btn btn-outline-primary">Test Node Properties</button>
+            <button id="test-connections" class="btn btn-outline-primary">Test Connections</button>
+            <button id="test-conversion" class="btn btn-outline-primary">Test Workflow Conversion</button>
+        </div>
+        
+        <div id="test-output">Test output will appear here</div>
+        
+        <div class="workflow-editor mt-3">
+            <div class="sidebar">
+                <h5>Elements</h5>
+                <div class="mb-3">
+                    <div class="node-item" data-node-type="call">
+                        <i class="bi bi-telephone"></i> Make Call
+                    </div>
+                    <div class="node-item" data-node-type="wait">
+                        <i class="bi bi-hourglass"></i> Wait
+                    </div>
+                    <div class="node-item" data-node-type="condition">
+                        <i class="bi bi-question-diamond"></i> Condition
+                    </div>
+                    <div class="node-item" data-node-type="sms">
+                        <i class="bi bi-chat"></i> Send SMS
+                    </div>
+                    <div class="node-item" data-node-type="end">
+                        <i class="bi bi-stop-circle"></i> End
+                    </div>
+                </div>
+            </div>
+
+            <div class="canvas-container" id="react-flow-canvas">
+                <!-- Canvas will be initialized here -->
+                <div class="d-flex justify-content-center align-items-center h-100">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading canvas...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="properties-panel" id="properties-panel">
+                <h5>Properties</h5>
+                <div class="alert alert-info">
+                    Select a node to edit its properties.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- React and React Flow -->
+    <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/reactflow/dist/reactflow.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Test output function
+        function log(message) {
+            const output = document.getElementById('test-output');
+            const timestamp = new Date().toLocaleTimeString();
+            output.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        // Mock data for testing
+        const workflow = {
+            name: 'Test Workflow',
+            description: 'A workflow for testing the UI',
+            active: true,
+            steps: [
+                {
+                    id: 'start',
+                    type: 'start',
+                    name: 'Start',
+                    isStart: true,
+                    next_step: 'call_1',
+                    position: { x: 100, y: 100 }
+                },
+                {
+                    id: 'call_1',
+                    type: 'call',
+                    name: 'Make Call',
+                    next_step: 'wait_1',
+                    position: { x: 250, y: 100 },
+                    properties: {
+                        priority: 2
+                    }
+                },
+                {
+                    id: 'wait_1',
+                    type: 'wait',
+                    name: 'Wait Step',
+                    next_step: 'condition_1',
+                    position: { x: 400, y: 100 },
+                    properties: {
+                        minutes: 30,
+                        respect_hours: true
+                    }
+                },
+                {
+                    id: 'condition_1',
+                    type: 'condition',
+                    name: 'Check Disposition',
+                    true_branch: 'sms_1',
+                    false_branch: 'end',
+                    position: { x: 550, y: 100 },
+                    condition: {
+                        field: 'call.disposition',
+                        operator: 'equals',
+                        value: 'No Answer'
+                    }
+                },
+                {
+                    id: 'sms_1',
+                    type: 'sms',
+                    name: 'Send SMS',
+                    next_step: 'end',
+                    position: { x: 700, y: 50 },
+                    properties: {
+                        message: 'Sorry we missed you. We\'ll try again later.'
+                    }
+                },
+                {
+                    id: 'end',
+                    type: 'end',
+                    name: 'End',
+                    position: { x: 700, y: 150 }
+                }
+            ]
+        };
+
+        // Initialize React Flow
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                // Log initialization
+                log('Initializing React Flow...');
+                
+                // Initialize React Flow instance
+                initReactFlow();
+                
+                // Set up test buttons
+                document.getElementById('test-drag-drop').addEventListener('click', testDragDrop);
+                document.getElementById('test-node-props').addEventListener('click', testNodeProperties);
+                document.getElementById('test-connections').addEventListener('click', testConnections);
+                document.getElementById('test-conversion').addEventListener('click', testWorkflowConversion);
+                
+                log('UI initialized successfully!');
+            } catch (error) {
+                log(`Error initializing: ${error.message}`);
+                console.error('Initialization error:', error);
+            }
+        });
+
+        // Global variables
+        let reactFlowInstance;
+        let selectedNode;
+
+        // Custom node components
+        function StartNode(props) {
+            return React.createElement('div', { className: 'custom-node start-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-play-circle' }),
+                    props.data.label
+                ),
+                React.createElement('div', { className: 'node-content' }, 'Workflow starting point')
+            );
+        }
+        
+        function CallNode(props) {
+            return React.createElement('div', { className: 'custom-node call-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-telephone' }),
+                    props.data.label
+                ),
+                React.createElement('div', { className: 'node-content' }, `Priority: ${props.data.priority || 'Normal'}`)
+            );
+        }
+        
+        function WaitNode(props) {
+            return React.createElement('div', { className: 'custom-node wait-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-hourglass' }),
+                    props.data.label
+                ),
+                React.createElement('div', { className: 'node-content' }, 
+                    `Wait for ${props.data.minutes || 30} minutes ${props.data.respectHours ? '(respecting hours)' : ''}`)
+            );
+        }
+        
+        function ConditionNode(props) {
+            return React.createElement('div', { className: 'custom-node condition-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-question-diamond' }),
+                    props.data.label
+                ),
+                React.createElement('div', { className: 'node-content' }, 
+                    `If ${props.data.field || ''} ${props.data.operator || ''} ${props.data.value || ''}`)
+            );
+        }
+        
+        function SmsNode(props) {
+            return React.createElement('div', { className: 'custom-node sms-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-chat' }),
+                    props.data.label
+                ),
+                React.createElement('div', { className: 'node-content' }, 'Send SMS message')
+            );
+        }
+        
+        function EndNode(props) {
+            return React.createElement('div', { className: 'custom-node end-node' },
+                React.createElement('div', { className: 'node-header' },
+                    React.createElement('i', { className: 'bi bi-stop-circle' }),
+                    props.data.label
+                ),
+                React.createElement('div', { className: 'node-content' }, 'Workflow complete')
+            );
+        }
+
+        // Initialize React Flow
+        function initReactFlow() {
+            // Create React Flow container
+            const container = document.getElementById('react-flow-canvas');
+            
+            // Initialize React Flow
+            const ReactFlow = window.ReactFlow.default;
+            const { Background, Controls, MiniMap } = window.ReactFlow;
+            
+            // Convert workflow to nodes and edges
+            const { nodes, edges } = convertWorkflowToFlow(workflow);
+            
+            log(`Created ${nodes.length} nodes and ${edges.length} edges from workflow`);
+            
+            // Create React Flow instance
+            reactFlowInstance = ReactFlow.createReactFlowInstance({
+                container,
+                nodes: nodes,
+                edges: edges,
+                nodeTypes: {
+                    start: StartNode,
+                    call: CallNode,
+                    wait: WaitNode,
+                    condition: ConditionNode,
+                    sms: SmsNode,
+                    end: EndNode
+                },
+                onNodeClick: handleNodeClick,
+                onConnect: handleConnect,
+                onNodeDragStop: handleNodeDragStop,
+                onDrop: handleDrop,
+                onDragOver: handleDragOver
+            });
+            
+            // Add background, controls, and mini map
+            ReactFlow.addReactFlowComponents(reactFlowInstance, {
+                background: Background,
+                controls: Controls,
+                miniMap: MiniMap
+            });
+            
+            log('React Flow initialized successfully');
+        }
+
+        // Event handlers
+        function handleNodeClick(event, node) {
+            selectedNode = node;
+            log(`Selected node: ${node.id} (${node.type})`);
+            showNodeProperties(node);
+        }
+        
+        function handleConnect(params) {
+            log(`Creating connection from ${params.source} to ${params.target}`);
+            
+            // Create new edge
+            const newEdge = {
+                id: `e${params.source}-${params.target}`,
+                source: params.source,
+                target: params.target,
+                type: 'smoothstep'
+            };
+            
+            // Add edge to React Flow
+            const newEdges = [...reactFlowInstance.getEdges(), newEdge];
+            reactFlowInstance.setEdges(newEdges);
+            
+            log('Connection created successfully');
+        }
+        
+        function handleNodeDragStop(event, node) {
+            log(`Node ${node.id} moved to position (${Math.round(node.position.x)}, ${Math.round(node.position.y)})`);
+        }
+        
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+        }
+        
+        function handleDrop(event) {
+            event.preventDefault();
+            
+            const reactFlowBounds = document.getElementById('react-flow-canvas').getBoundingClientRect();
+            const type = event.dataTransfer.getData('application/reactflow');
+            
+            if (!type) {
+                log('Error: No node type data found in drop event');
+                return;
+            }
+            
+            // Get position
+            const position = reactFlowInstance.project({
+                x: event.clientX - reactFlowBounds.left,
+                y: event.clientY - reactFlowBounds.top
+            });
+            
+            // Create new node
+            const newNode = {
+                id: `${type}_${Date.now()}`,
+                type,
+                position,
+                data: { label: `${type.charAt(0).toUpperCase() + type.slice(1)} Step` }
+            };
+            
+            log(`Creating new ${type} node at position (${Math.round(position.x)}, ${Math.round(position.y)})`);
+            
+            // Add node to React Flow
+            const newNodes = [...reactFlowInstance.getNodes(), newNode];
+            reactFlowInstance.setNodes(newNodes);
+            
+            log(`Node created with ID: ${newNode.id}`);
+        }
+
+        // Show node properties
+        function showNodeProperties(node) {
+            const propertiesContainer = document.getElementById('properties-panel');
+            propertiesContainer.innerHTML = '';
+            
+            // Create properties form based on node type
+            const title = document.createElement('h5');
+            title.textContent = 'Properties';
+            propertiesContainer.appendChild(title);
+            
+            const form = document.createElement('form');
+            form.id = 'node-properties-form';
+            
+            // Add common fields
+            const nameGroup = document.createElement('div');
+            nameGroup.className = 'mb-3';
+            
+            const nameLabel = document.createElement('label');
+            nameLabel.className = 'form-label';
+            nameLabel.htmlFor = 'node-name';
+            nameLabel.textContent = 'Name';
+            
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.className = 'form-control';
+            nameInput.id = 'node-name';
+            nameInput.value = node.data.label;
+            
+            nameGroup.appendChild(nameLabel);
+            nameGroup.appendChild(nameInput);
+            form.appendChild(nameGroup);
+            
+            // Add type-specific fields
+            switch (node.type) {
+                case 'start':
+                    const startInfo = document.createElement('div');
+                    startInfo.className = 'alert alert-info';
+                    startInfo.textContent = 'This is the starting point of your workflow.';
+                    form.appendChild(startInfo);
+                    break;
+                    
+                case 'call':
+                    const priorityGroup = document.createElement('div');
+                    priorityGroup.className = 'mb-3';
+                    
+                    const priorityLabel = document.createElement('label');
+                    priorityLabel.className = 'form-label';
+                    priorityLabel.htmlFor = 'call-priority';
+                    priorityLabel.textContent = 'Call Priority';
+                    
+                    const prioritySelect = document.createElement('select');
+                    prioritySelect.className = 'form-select';
+                    prioritySelect.id = 'call-priority';
+                    
+                    const option1 = document.createElement('option');
+                    option1.value = '1';
+                    option1.textContent = 'Normal';
+                    option1.selected = node.data.priority === 1;
+                    
+                    const option2 = document.createElement('option');
+                    option2.value = '2';
+                    option2.textContent = 'High';
+                    option2.selected = node.data.priority === 2;
+                    
+                    const option3 = document.createElement('option');
+                    option3.value = '3';
+                    option3.textContent = 'Urgent';
+                    option3.selected = node.data.priority === 3;
+                    
+                    prioritySelect.appendChild(option1);
+                    prioritySelect.appendChild(option2);
+                    prioritySelect.appendChild(option3);
+                    
+                    priorityGroup.appendChild(priorityLabel);
+                    priorityGroup.appendChild(prioritySelect);
+                    form.appendChild(priorityGroup);
+                    break;
+                    
+                case 'wait':
+                    const minutesGroup = document.createElement('div');
+                    minutesGroup.className = 'mb-3';
+                    
+                    const minutesLabel = document.createElement('label');
+                    minutesLabel.className = 'form-label';
+                    minutesLabel.htmlFor = 'wait-minutes';
+                    minutesLabel.textContent = 'Wait Time (minutes)';
+                    
+                    const minutesInput = document.createElement('input');
+                    minutesInput.type = 'number';
+                    minutesInput.className = 'form-control';
+                    minutesInput.id = 'wait-minutes';
+                    minutesInput.min = '1';
+                    minutesInput.value = node.data.minutes || 30;
+                    
+                    minutesGroup.appendChild(minutesLabel);
+                    minutesGroup.appendChild(minutesInput);
+                    form.appendChild(minutesGroup);
+                    
+                    const respectHoursGroup = document.createElement('div');
+                    respectHoursGroup.className = 'form-check mb-3';
+                    
+                    const respectHoursInput = document.createElement('input');
+                    respectHoursInput.type = 'checkbox';
+                    respectHoursInput.className = 'form-check-input';
+                    respectHoursInput.id = 'respect-hours';
+                    respectHoursInput.checked = node.data.respectHours;
+                    
+                    const respectHoursLabel = document.createElement('label');
+                    respectHoursLabel.className = 'form-check-label';
+                    respectHoursLabel.htmlFor = 'respect-hours';
+                    respectHoursLabel.textContent = 'Respect Business Hours';
+                    
+                    respectHoursGroup.appendChild(respectHoursInput);
+                    respectHoursGroup.appendChild(respectHoursLabel);
+                    form.appendChild(respectHoursGroup);
+                    break;
+                    
+                case 'condition':
+                    const fieldGroup = document.createElement('div');
+                    fieldGroup.className = 'mb-3';
+                    
+                    const fieldLabel = document.createElement('label');
+                    fieldLabel.className = 'form-label';
+                    fieldLabel.htmlFor = 'condition-field';
+                    fieldLabel.textContent = 'Field';
+                    
+                    const fieldSelect = document.createElement('select');
+                    fieldSelect.className = 'form-select';
+                    fieldSelect.id = 'condition-field';
+                    
+                    const fieldOption1 = document.createElement('option');
+                    fieldOption1.value = 'call.disposition';
+                    fieldOption1.textContent = 'Call Disposition';
+                    fieldOption1.selected = node.data.field === 'call.disposition';
+                    
+                    const fieldOption2 = document.createElement('option');
+                    fieldOption2.value = 'lead.priority';
+                    fieldOption2.textContent = 'Lead Priority';
+                    fieldOption2.selected = node.data.field === 'lead.priority';
+                    
+                    fieldSelect.appendChild(fieldOption1);
+                    fieldSelect.appendChild(fieldOption2);
+                    
+                    fieldGroup.appendChild(fieldLabel);
+                    fieldGroup.appendChild(fieldSelect);
+                    form.appendChild(fieldGroup);
+                    
+                    const operatorGroup = document.createElement('div');
+                    operatorGroup.className = 'mb-3';
+                    
+                    const operatorLabel = document.createElement('label');
+                    operatorLabel.className = 'form-label';
+                    operatorLabel.htmlFor = 'condition-operator';
+                    operatorLabel.textContent = 'Operator';
+                    
+                    const operatorSelect = document.createElement('select');
+                    operatorSelect.className = 'form-select';
+                    operatorSelect.id = 'condition-operator';
+                    
+                    const operatorOption1 = document.createElement('option');
+                    operatorOption1.value = 'equals';
+                    operatorOption1.textContent = 'Equals';
+                    operatorOption1.selected = node.data.operator === 'equals';
+                    
+                    const operatorOption2 = document.createElement('option');
+                    operatorOption2.value = 'not_equals';
+                    operatorOption2.textContent = 'Not Equals';
+                    operatorOption2.selected = node.data.operator === 'not_equals';
+                    
+                    const operatorOption3 = document.createElement('option');
+                    operatorOption3.value = 'contains';
+                    operatorOption3.textContent = 'Contains';
+                    operatorOption3.selected = node.data.operator === 'contains';
+                    
+                    operatorSelect.appendChild(operatorOption1);
+                    operatorSelect.appendChild(operatorOption2);
+                    operatorSelect.appendChild(operatorOption3);
+                    
+                    operatorGroup.appendChild(operatorLabel);
+                    operatorGroup.appendChild(operatorSelect);
+                    form.appendChild(operatorGroup);
+                    
+                    const valueGroup = document.createElement('div');
+                    valueGroup.className = 'mb-3';
+                    
+                    const valueLabel = document.createElement('label');
+                    valueLabel.className = 'form-label';
+                    valueLabel.htmlFor = 'condition-value';
+                    valueLabel.textContent = 'Value';
+                    
+                    const valueInput = document.createElement('input');
+                    valueInput.type = 'text';
+                    valueInput.className = 'form-control';
+                    valueInput.id = 'condition-value';
+                    valueInput.value = node.data.value || '';
+                    
+                    valueGroup.appendChild(valueLabel);
+                    valueGroup.appendChild(valueInput);
+                    form.appendChild(valueGroup);
+                    break;
+                    
+                case 'sms':
+                    const messageGroup = document.createElement('div');
+                    messageGroup.className = 'mb-3';
+                    
+                    const messageLabel = document.createElement('label');
+                    messageLabel.className = 'form-label';
+                    messageLabel.htmlFor = 'sms-message';
+                    messageLabel.textContent = 'Message';
+                    
+                    const messageTextarea = document.createElement('textarea');
+                    messageTextarea.className = 'form-control';
+                    messageTextarea.id = 'sms-message';
+                    messageTextarea.rows = 3;
+                    messageTextarea.value = node.data.message || '';
+                    
+                    messageGroup.appendChild(messageLabel);
+                    messageGroup.appendChild(messageTextarea);
+                    form.appendChild(messageGroup);
+                    break;
+                    
+                case 'end':
+                    const endInfo = document.createElement('div');
+                    endInfo.className = 'alert alert-info';
+                    endInfo.textContent = 'This is the end of your workflow. No further steps will be executed after this.';
+                    form.appendChild(endInfo);
+                    break;
+            }
+            
+            // Add update button for editable nodes
+            if (node.type !== 'start' && node.type !== 'end') {
+                const updateButton = document.createElement('button');
+                updateButton.type = 'button';
+                updateButton.className = 'btn btn-primary';
+                updateButton.textContent = 'Update Properties';
+                updateButton.addEventListener('click', () => updateNodeProperties(node));
+                form.appendChild(updateButton);
+            }
+            
+            propertiesContainer.appendChild(form);
+        }
+
+        // Update node properties
+        function updateNodeProperties(node) {
+            // Update node name
+            const name = document.getElementById('node-name').value.trim();
+            node.data.label = name;
+            
+            // Update type-specific properties
+            switch (node.type) {
+                case 'call':
+                    node.data.priority = parseInt(document.getElementById('call-priority').value);
+                    break;
+                    
+                case 'wait':
+                    node.data.minutes = parseInt(document.getElementById('wait-minutes').value);
+                    node.data.respectHours = document.getElementById('respect-hours').checked;
+                    break;
+                    
+                case 'condition':
+                    node.data.field = document.getElementById('condition-field').value;
+                    node.data.operator = document.getElementById('condition-operator').value;
+                    node.data.value = document.getElementById('condition-value').value;
+                    break;
+                    
+                case 'sms':
+                    node.data.message = document.getElementById('sms-message').value;
+                    break;
+            }
+            
+            // Update node in React Flow
+            const nodes = reactFlowInstance.getNodes().map(n => {
+                if (n.id === node.id) {
+                    return { ...n, data: node.data };
+                }
+                return n;
+            });
+            
+            reactFlowInstance.setNodes(nodes);
+            
+            log(`Updated properties for node ${node.id}`);
+        }
+
+        // Convert workflow model to React Flow nodes and edges
+        function convertWorkflowToFlow(workflow) {
+            // Create nodes
+            const nodes = workflow.steps.map(step => {
+                const node = {
+                    id: step.id,
+                    type: step.type,
+                    position: step.position || { x: 0, y: 0 },
+                    data: { label: step.name }
+                };
+                
+                // Add type-specific data
+                switch (step.type) {
+                    case 'call':
+                        node.data.priority = step.properties?.priority || 1;
+                        break;
+                    case 'wait':
+                        node.data.minutes = step.properties?.minutes || 30;
+                        node.data.respectHours = step.properties?.respect_hours || false;
+                        break;
+                    case 'condition':
+                        node.data.field = step.condition?.field || '';
+                        node.data.operator = step.condition?.operator || '';
+                        node.data.value = step.condition?.value || '';
+                        break;
+                    case 'sms':
+                        node.data.message = step.properties?.message || '';
+                        break;
+                }
+                
+                return node;
+            });
+            
+            // Create edges
+            const edges = [];
+            
+            workflow.steps.forEach(step => {
+                if (step.next_step) {
+                    edges.push({
+                        id: `e${step.id}-${step.next_step}`,
+                        source: step.id,
+                        target: step.next_step,
+                        type: 'smoothstep'
+                    });
+                }
+                
+                if (step.true_branch) {
+                    edges.push({
+                        id: `e${step.id}-${step.true_branch}-true`,
+                        source: step.id,
+                        target: step.true_branch,
+                        sourceHandle: 'true',
+                        type: 'smoothstep'
+                    });
+                }
+                
+                if (step.false_branch) {
+                    edges.push({
+                        id: `e${step.id}-${step.false_branch}-false`,
+                        source: step.id,
+                        target: step.false_branch,
+                        sourceHandle: 'false',
+                        type: 'smoothstep'
+                    });
+                }
+            });
+            
+            return { nodes, edges };
+        }
+
+        // Convert React Flow to workflow model
+        function convertFlowToWorkflow(nodes, edges) {
+            // Create steps array
+            const steps = nodes.map(node => {
+                const step = {
+                    id: node.id,
+                    type: node.type,
+                    name: node.data.label,
+                    position: node.position
+                };
+                
+                // Add type-specific properties
+                switch (node.type) {
+                    case 'start':
+                        step.isStart = true;
+                        break;
+                    case 'call':
+                        step.properties = {
+                            priority: node.data.priority || 1
+                        };
+                        break;
+                    case 'wait':
+                        step.properties = {
+                            minutes: node.data.minutes || 30,
+                            respect_hours: node.data.respectHours || false
+                        };
+                        break;
+                    case 'condition':
+                        step.condition = {
+                            field: node.data.field || '',
+                            operator: node.data.operator || '',
+                            value: node.data.value || ''
+                        };
+                        break;
+                    case 'sms':
+                        step.properties = {
+                            message: node.data.message || ''
+                        };
+                        break;
+                }
+                
+                return step;
+            });
+            
+            // Process edges to set next steps
+            edges.forEach(edge => {
+                const sourceStep = steps.find(step => step.id === edge.source);
+                
+                if (sourceStep) {
+                    if (sourceStep.type === 'condition') {
+                        // For condition nodes, set true_branch or false_branch based on the handle
+                        if (edge.sourceHandle === 'true') {
+                            sourceStep.true_branch = edge.target;
+                        } else if (edge.sourceHandle === 'false') {
+                            sourceStep.false_branch = edge.target;
+                        } else {
+                            sourceStep.next_step = edge.target;
+                        }
+                    } else {
+                        // For other nodes, set next_step
+                        sourceStep.next_step = edge.target;
+                    }
+                }
+            });
+            
+            return steps;
+        }
+
+        // Test functions
+        function testDragDrop() {
+            log('Testing drag and drop functionality...');
+            
+            // Create a new node
+            const newNode = {
+                id: `test_node_${Date.now()}`,
+                type: 'call',
+                position: { x: 300, y: 250 },
+                data: { label: 'Test Call Node', priority: 1 }
+            };
+            
+            // Add node to React Flow
+            const newNodes = [...reactFlowInstance.getNodes(), newNode];
+            reactFlowInstance.setNodes(newNodes);
+            
+            log('Created a test node via code');
+            log('Try dragging elements from the sidebar to the canvas');
+            
+            // Make elements draggable
+            document.querySelectorAll('.node-item').forEach(item => {
+                item.addEventListener('dragstart', function(event) {
+                    const nodeType = this.getAttribute('data-node-type');
+                    event.dataTransfer.setData('application/reactflow', nodeType);
+                    event.dataTransfer.effectAllowed = 'move';
+                    log(`Dragging a ${nodeType} node`);
+                });
+                item.setAttribute('draggable', 'true');
+            });
+        }
+        
+        function testNodeProperties() {
+            log('Testing node properties panel...');
+            
+            // Find a node to test
+            const nodes = reactFlowInstance.getNodes();
+            if (nodes.length === 0) {
+                log('No nodes found. Please add nodes first.');
+                return;
+            }
+            
+            // Select a node for testing properties
+            const testNode = nodes.find(n => n.type === 'call') || nodes[0];
+            selectedNode = testNode;
+            
+            log(`Selecting node: ${testNode.id} (${testNode.type})`);
+            showNodeProperties(testNode);
+            
+            log('Properties panel populated. Try updating values and clicking "Update Properties"');
+        }
+        
+        function testConnections() {
+            log('Testing connections between nodes...');
+            
+            // Get existing nodes
+            const nodes = reactFlowInstance.getNodes();
+            if (nodes.length < 2) {
+                log('Need at least 2 nodes to test connections. Please add more nodes.');
+                return;
+            }
+            
+            // Find two nodes to connect
+            const sourceNode = nodes.find(n => n.type !== 'end') || nodes[0];
+            const targetNode = nodes.find(n => n.id !== sourceNode.id) || nodes[1];
+            
+            // Create a new connection
+            const newEdge = {
+                id: `e${sourceNode.id}-${targetNode.id}-test`,
+                source: sourceNode.id,
+                target: targetNode.id,
+                type: 'smoothstep'
+            };
+            
+            // Add edge to React Flow
+            const newEdges = [...reactFlowInstance.getEdges(), newEdge];
+            reactFlowInstance.setEdges(newEdges);
+            
+            log(`Created a test connection from ${sourceNode.id} to ${targetNode.id}`);
+            log('You can also create connections by dragging from node ports');
+        }
+        
+        function testWorkflowConversion() {
+            log('Testing workflow conversion...');
+            
+            // Get current nodes and edges
+            const nodes = reactFlowInstance.getNodes();
+            const edges = reactFlowInstance.getEdges();
+            
+            // Convert to workflow model
+            const steps = convertFlowToWorkflow(nodes, edges);
+            
+            log(`Converted ${nodes.length} nodes and ${edges.length} edges to workflow model`);
+            log(`Workflow has ${steps.length} steps`);
+            
+            // Convert back to flow
+            const { nodes: convertedNodes, edges: convertedEdges } = convertWorkflowToFlow({
+                steps: steps
+            });
+            
+            log(`Converted workflow model back to flow: ${convertedNodes.length} nodes and ${convertedEdges.length} edges`);
+            log('Conversion test completed successfully');
+        }
+    </script>
+</body>
+</html>

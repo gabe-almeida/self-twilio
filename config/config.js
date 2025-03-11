@@ -2,7 +2,7 @@
 
 const CONFIG = {
   // Backend service URL - IMPORTANT: This must match your server URL
-  SERVER_URL: 'http://localhost:3000',
+  SERVER_URL: 'https://89bd-2600-4040-5f87-5900-30cd-b863-962-b04c.ngrok-free.app',
   
   // Default caller ID
   DEFAULT_CALLER_ID: '+19788785223',
